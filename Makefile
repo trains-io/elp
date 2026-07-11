@@ -1,11 +1,16 @@
 .DEFAULT_GOAL := help
 
 .PHONY: help test generate-operator build-operator clean \
+	operator-image kind-load-operator operator-install-crd operator-install operator-uninstall operator-dev-install \
 	kind-up kind-down kind-configure-host nats-install nats-uninstall dev-infra-up dev-infra-down
 
 KIND_CLUSTER_NAME ?= elp
 KIND_CONFIG = tools/kind/kind-config.yaml
 KIND_NODE = $(KIND_CLUSTER_NAME)-control-plane
+OPERATOR_DIR = operators/z21-device
+OPERATOR_CRD_KUSTOMIZE = $(OPERATOR_DIR)/config/crd
+OPERATOR_KUSTOMIZE = $(OPERATOR_DIR)/config/default
+OPERATOR_IMAGE = z21-device-controller:local
 # Pin stable k8s; override to match your kind release notes if needed.
 KIND_NODE_IMAGE ?= kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 
@@ -35,6 +40,27 @@ build-operator: ## Build the z21-device operator
 
 clean: ## Remove built binaries
 	rm -rf bin/
+
+operator-image: ## Build the controller container image for local kind
+	docker build -t $(OPERATOR_IMAGE) -f $(OPERATOR_DIR)/Dockerfile $(OPERATOR_DIR)
+
+kind-load-operator: ## Load the local controller image into the kind cluster
+	@if ! kind get clusters 2>/dev/null | grep -qx '$(KIND_CLUSTER_NAME)'; then \
+		echo "kind cluster '$(KIND_CLUSTER_NAME)' not found; run make kind-up first"; exit 1; \
+	fi
+	kind load docker-image $(OPERATOR_IMAGE) --name $(KIND_CLUSTER_NAME)
+
+operator-install-crd: ## Install Z21Device CRDs only
+	kubectl apply -k $(OPERATOR_CRD_KUSTOMIZE)
+
+operator-install: ## Install CRDs, RBAC, and controller manager
+	kubectl apply -k $(OPERATOR_KUSTOMIZE)
+	kubectl rollout status deployment/controller-manager -n system --timeout=120s
+
+operator-uninstall: ## Remove controller manager, RBAC, and CRDs
+	kubectl delete -k $(OPERATOR_KUSTOMIZE) --ignore-not-found
+
+operator-dev-install: operator-image kind-load-operator operator-install ## Build, load, and install operator on kind
 
 ##@ Infrastructure
 
