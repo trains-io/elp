@@ -151,6 +151,8 @@ api-dev-install: api-image kind-load-api api-install ## Build, load, and install
 api-port-forward: ## Forward in-cluster API to localhost:8080
 	kubectl port-forward -n default svc/elp-api 8080:8080
 
+##@ elpctl
+
 test-elpctl: ## Run elpctl unit tests
 	cd $(ELPCTL_DIR) && go test ./... -count=1
 
