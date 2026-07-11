@@ -1,0 +1,295 @@
+openapi: 3.1.0
+info:
+  title: z21 API
+  version: 0.1.0
+  description: HTTP API bridging the React UI to Kubernetes Z21Device resources.
+
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      operationId: healthz
+      responses:
+        "200":
+          description: OK
+
+  /api/v1/namespaces/{namespace}/devices:
+    get:
+      summary: List Z21 devices
+      operationId: listDevices
+      parameters:
+        - $ref: "#/components/parameters/namespace"
+      responses:
+        "200":
+          description: Device list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      summary: Create a Z21 device
+      operationId: createDevice
+      parameters:
+        - $ref: "#/components/parameters/namespace"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/namespaces/{namespace}/devices/stream:
+    get:
+      summary: Stream device updates (SSE)
+      operationId: streamDevices
+      description: |
+        Server-sent events for Z21Device changes in a namespace.
+        Events: `snapshot` (initial list), `updated` (device changed), `deleted` (device removed).
+      parameters:
+        - $ref: "#/components/parameters/namespace"
+      responses:
+        "200":
+          description: Event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/v1/namespaces/{namespace}/devices/{name}:
+    get:
+      summary: Get a Z21 device
+      operationId: getDevice
+      parameters:
+        - $ref: "#/components/parameters/namespace"
+        - $ref: "#/components/parameters/name"
+      responses:
+        "200":
+          description: Device
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      summary: Update a Z21 device
+      operationId: patchDevice
+      parameters:
+        - $ref: "#/components/parameters/namespace"
+        - $ref: "#/components/parameters/name"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete a Z21 device
+      operationId: deleteDevice
+      parameters:
+        - $ref: "#/components/parameters/namespace"
+        - $ref: "#/components/parameters/name"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+
+components:
+  parameters:
+    namespace:
+      name: namespace
+      in: path
+      required: true
+      schema:
+        type: string
+    name:
+      name: name
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    DeviceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Device"
+
+    Device:
+      type: object
+      required: [name, namespace, address, nats, broadcastFlags]
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        address:
+          type: string
+        nats:
+          $ref: "#/components/schemas/NatsConfig"
+        gateway:
+          $ref: "#/components/schemas/GatewayConfig"
+        broadcastFlags:
+          type: integer
+          format: uint32
+          description: LAN_SET_BROADCASTFLAGS bitmask (spec §2.16)
+        status:
+          $ref: "#/components/schemas/DeviceStatus"
+
+    DeviceCreate:
+      type: object
+      required: [name, address, nats]
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        nats:
+          $ref: "#/components/schemas/NatsConfig"
+        gateway:
+          $ref: "#/components/schemas/GatewayConfig"
+        broadcastFlags:
+          type: integer
+          format: uint32
+
+    DeviceUpdate:
+      type: object
+      properties:
+        address:
+          type: string
+        nats:
+          $ref: "#/components/schemas/NatsConfig"
+        gateway:
+          $ref: "#/components/schemas/GatewayConfig"
+        broadcastFlags:
+          type: integer
+          format: uint32
+
+    NatsConfig:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+        subjectPrefix:
+          type: string
+
+    GatewayConfig:
+      type: object
+      properties:
+        image:
+          type: string
+        hostNetwork:
+          type: boolean
+        nodeSelector:
+          type: object
+          additionalProperties:
+            type: string
+
+    DeviceStatus:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [Pending, Starting, Running, Failed, Stopping]
+        gatewayDeployment:
+          type: string
+        gatewayReady:
+          type: boolean
+        deviceReachable:
+          type: boolean
+        degraded:
+          type: boolean
+        healthCheckFailures:
+          type: integer
+          format: int32
+        lastSuccessfulHealthCheck:
+          type: string
+          format: date-time
+        lastSeen:
+          type: string
+          format: date-time
+        serialNumber:
+          type: string
+        firmwareVersion:
+          type: string
+        hardwareType:
+          type: string
+          description: Z21 hardware type from LAN_GET_HWINFO (hex)
+        xbusVersion:
+          type: string
+          description: X-Bus protocol version from LAN_X_GET_VERSION
+        xbusFirmwareVersion:
+          type: string
+          description: X-Bus firmware version from LAN_X_GET_FIRMWARE_VERSION
+        lockCode:
+          type: integer
+          format: uint8
+          description: LAN_GET_CODE lock byte (0 = no lock, 1 = z21 start locked, 2 = unlocked)
+
+    DeviceStreamEvent:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [snapshot, updated, deleted]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Device"
+        device:
+          $ref: "#/components/schemas/Device"
+        name:
+          type: string

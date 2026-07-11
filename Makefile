@@ -2,7 +2,8 @@
 
 .PHONY: help test generate-operator build-operator clean \
 	operator-image kind-load-operator operator-install-crd operator-install operator-uninstall operator-dev-install \
-	kind-up kind-down kind-configure-host nats-install nats-uninstall dev-infra-up dev-infra-down
+	kind-up kind-down kind-configure-host nats-install nats-uninstall dev-infra-up dev-infra-down \
+	test-api build-api run-api
 
 KIND_CLUSTER_NAME ?= elp
 KIND_CONFIG = tools/kind/kind-config.yaml
@@ -11,6 +12,8 @@ OPERATOR_DIR = operators/z21-device
 OPERATOR_CRD_KUSTOMIZE = $(OPERATOR_DIR)/config/crd
 OPERATOR_KUSTOMIZE = $(OPERATOR_DIR)/config/default
 OPERATOR_IMAGE = z21-device-controller:local
+API_DIR = apps/api
+API_BIN = bin/elp-api
 # Pin stable k8s; override to match your kind release notes if needed.
 KIND_NODE_IMAGE ?= kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 
@@ -107,3 +110,15 @@ nats-uninstall: ## Remove NATS from the cluster
 dev-infra-up: kind-up nats-install ## Bring up kind cluster and install NATS
 
 dev-infra-down: kind-down ## Tear down kind cluster
+
+##@ API
+
+test-api: ## Run API unit tests
+	cd $(API_DIR) && go test ./... -count=1
+
+build-api: ## Build bin/elp-api
+	mkdir -p bin
+	cd $(API_DIR) && go build -o ../../$(API_BIN) .
+
+run-api: build-api ## Run HTTP API on :8080 (see CONTRIBUTING.md for NATS_URL with kind)
+	$(API_BIN)

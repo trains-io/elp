@@ -9,7 +9,7 @@ Run `make` or `make help` from the repository root to list available targets.
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Go | 1.24+ | Operator module (`operators/z21-device`) |
+| Go | 1.24+ | Operator (`operators/z21-device`) and API (`apps/api`) modules |
 | Docker | recent | kind cluster, NATS, controller images |
 | kind | recent | Local Kubernetes cluster |
 | kubectl | matches kind node | Install CRDs and workloads |
@@ -39,6 +39,14 @@ kubectl apply -f operators/z21-device/config/samples/z21_v1alpha1_z21device.yaml
 kubectl get z21devices
 kubectl get pods -n system
 kubectl get deploy -A | grep z21
+
+# 5. API (optional — HTTP bridge to Z21Device CRs)
+make build-api
+# In another terminal, port-forward NATS when running the API on the host:
+# kubectl port-forward -n default svc/nats 4222:4222
+NATS_URL=nats://127.0.0.1:4222 make run-api
+curl http://localhost:8080/healthz
+curl http://localhost:8080/api/v1/namespaces/default/devices
 ```
 
 Tear down:
@@ -63,6 +71,48 @@ kind, and applies `operators/z21-device/config/default` (CRD, RBAC, manager Depl
 
 **Sample `Z21Device`** — edit `spec.backend.hardware.host` for your LAN command station,
 or use a simulator backend once gateway images are available locally.
+
+## HTTP API
+
+The API module lives at `apps/api/`. It exposes REST endpoints and an SSE device
+stream backed by a Kubernetes watch on `Z21Device` resources.
+
+**OpenAPI contract:** `packages/api/openapi/openapi.yaml`
+
+### Build and run
+
+```bash
+make test-api
+make build-api          # → bin/elp-api
+make run-api            # listens on :8080 by default
+```
+
+Environment variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `API_ADDR` | `:8080` | HTTP listen address |
+| `NATS_URL` | _(empty)_ | Override NATS URL for control commands |
+
+When the API runs on your host against a kind cluster, device specs still contain
+in-cluster NATS URLs (`nats://nats.default.svc.cluster.local:4222`). Set
+`NATS_URL=nats://127.0.0.1:4222` and port-forward NATS so broadcast-flag patches
+reach gateways:
+
+```bash
+kubectl port-forward -n default svc/nats 4222:4222
+NATS_URL=nats://127.0.0.1:4222 make run-api
+```
+
+### Smoke test
+
+```bash
+curl http://localhost:8080/healthz
+curl http://localhost:8080/api/v1/namespaces/default/devices
+curl -N http://localhost:8080/api/v1/namespaces/default/devices/stream
+```
+
+CORS allows `http://localhost:5173` and `:3000` for a future web UI.
 
 ## Make targets
 
@@ -91,6 +141,14 @@ or use a simulator backend once gateway images are available locally.
 | `make nats-uninstall` | Remove NATS |
 | `make dev-infra-up` | `kind-up` + `nats-install` |
 | `make dev-infra-down` | `kind-down` |
+
+### API
+
+| Target | Description |
+|--------|-------------|
+| `make test-api` | Unit tests for `apps/api` |
+| `make build-api` | Build `bin/elp-api` |
+| `make run-api` | Build (if needed) and run the HTTP API |
 
 ## Developing the operator
 
@@ -132,6 +190,26 @@ To refresh only the CRD after an API change:
 
 ```bash
 make operator-install-crd
+```
+
+## Developing the API
+
+The API is a standalone Go module at `apps/api/` (with local `replace` directives
+for `operators/z21-device` and `packages/events`).
+
+```bash
+make test-api
+# or
+cd apps/api && go test ./... -count=1
+```
+
+Requires a kubeconfig pointing at your cluster (e.g. `kind-elp` after
+`make dev-infra-up`). The API uses in-cluster config when run inside Kubernetes,
+or `~/.kube/config` when run on the host.
+
+```bash
+make build-api
+NATS_URL=nats://127.0.0.1:4222 make run-api
 ```
 
 ## Checking a Z21Device
@@ -206,7 +284,11 @@ service names such as `nats.default.svc.cluster.local` resolve via CoreDNS.
 elp/
 ├── Makefile                      # dev targets (see make help)
 ├── deploy/nats/                  # in-cluster NATS for local dev
+├── packages/
+│   ├── api/openapi/              # OpenAPI contract for the HTTP API
+│   └── events/                   # shared NATS event/control types
 ├── tools/kind/                   # kind config + host.docker.internal setup
+├── apps/api/                     # HTTP API (REST + SSE device stream)
 └── operators/z21-device/
     ├── api/v1alpha1/             # CRD Go types
     ├── cmd/                      # controller manager entrypoint
