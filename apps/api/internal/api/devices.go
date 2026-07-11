@@ -17,8 +17,9 @@ import (
 )
 
 type DeviceHandler struct {
-	Client  client.Client
-	Control DeviceControlPublisher
+	Client    client.Client
+	StreamHub *StreamHub
+	Control   DeviceControlPublisher
 }
 
 // DeviceControlPublisher pushes live commands to a device gateway.
@@ -28,7 +29,7 @@ type DeviceControlPublisher interface {
 
 func (h *DeviceHandler) Routes() chi.Router {
 	r := chi.NewRouter()
-	// Commit 4:r.Get("/stream", h.streamDevices)
+	r.Get("/stream", h.streamDevices)
 	r.Get("/", h.listDevices)
 	r.Post("/", h.createDevice)
 	r.Get("/{name}", h.getDevice)

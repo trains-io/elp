@@ -13,10 +13,11 @@ type Server struct {
 	router chi.Router
 }
 
-func NewServer(k8s client.Client, control DeviceControlPublisher) *Server {
+func NewServer(k8s client.Client, hub *StreamHub, control DeviceControlPublisher) *Server {
 	deviceHandler := &DeviceHandler{
-		Client:  k8s,
-		Control: control,
+		Client:    k8s,
+		StreamHub: hub,
+		Control:   control,
 	}
 
 	r := chi.NewRouter()

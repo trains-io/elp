@@ -27,9 +27,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	hub := api.NewStreamHub()
+	go func() {
+		if err := k8s.StartDeviceWatch(ctx, hub); err != nil && ctx.Err() == nil {
+			slog.Error("device watch", "error", err)
+		}
+	}()
+
 	srv := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: api.NewServer(k8sClient, api.NoopControl()).Handler(),
+		Handler: api.NewServer(k8sClient, hub, api.NoopControl()).Handler(),
 	}
 
 	go func() {
