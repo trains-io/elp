@@ -3,7 +3,8 @@
 .PHONY: help test generate-operator build-operator clean \
 	operator-image kind-load-operator operator-install-crd operator-install operator-uninstall operator-dev-install \
 	kind-up kind-down kind-configure-host nats-install nats-uninstall dev-infra-up dev-infra-down \
-	test-api build-api run-api api-image kind-load-api api-install api-uninstall api-dev-install api-port-forward
+	test-api build-api run-api api-image kind-load-api api-install api-uninstall api-dev-install api-port-forward \
+	test-elpctl build-elpctl
 
 KIND_CLUSTER_NAME ?= elp
 KIND_CONFIG = tools/kind/kind-config.yaml
@@ -16,6 +17,8 @@ API_DIR = apps/api
 API_BIN = bin/elp-api
 API_KUSTOMIZE = deploy/api
 API_IMAGE = elp-api:local
+ELPCTL_DIR = apps/elpctl
+ELPCTL_BIN = bin/elpctl
 # Pin stable k8s; override to match your kind release notes if needed.
 KIND_NODE_IMAGE ?= kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 
@@ -147,3 +150,10 @@ api-dev-install: api-image kind-load-api api-install ## Build, load, and install
 
 api-port-forward: ## Forward in-cluster API to localhost:8080
 	kubectl port-forward -n default svc/elp-api 8080:8080
+
+test-elpctl: ## Run elpctl unit tests
+	cd $(ELPCTL_DIR) && go test ./... -count=1
+
+build-elpctl: ## Build bin/elpctl
+	mkdir -p bin
+	cd $(ELPCTL_DIR) && go build -o ../../$(ELPCTL_BIN) .

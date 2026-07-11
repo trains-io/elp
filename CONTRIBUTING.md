@@ -177,6 +177,38 @@ Remove with `make api-uninstall`.
 | `make api-uninstall` | Remove the in-cluster API |
 | `make api-dev-install` | Image build + kind load + install |
 | `make api-port-forward` | Forward `svc/elp-api` to `localhost:8080` |
+| `make test-elpctl` | Unit tests for `apps/elpctl` |
+| `make build-elpctl` | Build `bin/elpctl` |
+
+## elpctl
+
+`elpctl` is a kubectl-style CLI for the elp HTTP API.
+
+```bash
+make build-elpctl
+
+# against a running API (make run-api or make api-port-forward)
+export ELP_SERVER=http://localhost:8080
+
+elpctl device create basement \
+  --address 192.168.0.42:21105 \
+  --host-network \
+  --node-selector trains.io/edge=true
+
+elpctl device list
+elpctl device get basement
+elpctl device watch basement
+elpctl device watch          # all devices in namespace
+```
+
+Environment variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `ELP_SERVER` | `http://localhost:8080` | API base URL (`--server`) |
+| `ELP_NAMESPACE` | `default` | Target namespace (`--namespace`) |
+
+Use `-o json` for machine-readable output.
 
 ## Developing the operator
 
@@ -318,8 +350,10 @@ elp/
 │   ├── api/openapi/              # OpenAPI contract for the HTTP API
 │   └── events/                   # shared NATS event/control types
 ├── tools/kind/                   # kind config + host.docker.internal setup
-├── apps/api/                     # HTTP API (REST + SSE device stream)
-│   └── Dockerfile                # container image (build from repo root)
+├── apps/
+│   ├── api/                      # HTTP API (REST + SSE device stream)
+│   │   └── Dockerfile
+│   └── elpctl/                   # kubectl-style CLI for the API
 └── operators/z21-device/
     ├── api/v1alpha1/             # CRD Go types
     ├── cmd/                      # controller manager entrypoint
