@@ -7,7 +7,10 @@ help: ## Show targets
 test: ## Run operator unit tests
 	cd operators/z21-device && go test ./... -count=1
 
-generate-operator: ## Regenerate CRD and deepcopy from API types
+generate-operator: ## Regenerate CRD, deepcopy, and RBAC from API + controllers
 	cd operators/z21-device && \
 	controller-gen object paths="./api/..." output:object:artifacts:config=api/v1alpha1 && \
-	controller-gen crd paths="./api/..." output:crd:artifacts:config=config/crd/bases
+	controller-gen crd rbac:roleName=manager-role \
+		paths="./api/...;./internal/..." \
+		output:crd:artifacts:config=config/crd/bases \
+		output:rbac:dir=config/rbac
