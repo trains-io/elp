@@ -1,4 +1,4 @@
-.PHONY: help test generate-operator
+.PHONY: help test generate-operator build-operator clean
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | \
@@ -14,3 +14,9 @@ generate-operator: ## Regenerate CRD, deepcopy, and RBAC from API + controllers
 		paths="./api/...;./internal/..." \
 		output:crd:artifacts:config=config/crd/bases \
 		output:rbac:dir=config/rbac
+
+build-operator: ## Build the z21-device operator
+	cd operators/z21-device && go build -o ../../bin/z21-device-controller ./cmd
+
+clean: ## Remove built binaries
+	rm -f bin/*

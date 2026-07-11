@@ -1,0 +1,12 @@
+namespace: system
+resources:
+  - ../crd
+  - ../rbac
+  - ../manager
+images:
+  - name: ghcr.io/trains-io/z21-device-controller
+    newName: z21-device-controller
+    newTag: local
+  - name: ghcr.io/trains-io/z21-gateway
+    newName: z21-gateway
+    newTag: local

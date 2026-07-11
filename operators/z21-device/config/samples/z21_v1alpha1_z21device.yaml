@@ -1,0 +1,19 @@
+apiVersion: z21.trains.io/v1alpha1
+kind: Z21Device
+metadata:
+  name: basement
+  namespace: default
+  annotations:
+    z21.trains.io/display-name: Basement layout
+spec:
+  backend:
+    type: hardware
+    hardware:
+      host: "192.168.0.42"
+  nats:
+    url: "nats://nats.default.svc.cluster.local:4222"
+  gateway:
+    image: z21-gateway:local
+    hostNetwork: true
+    nodeSelector:
+      trains.io/edge: "true"
