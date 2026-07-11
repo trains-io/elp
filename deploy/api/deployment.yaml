@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elp-api
+  labels:
+    app.kubernetes.io/name: elp-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: elp-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: elp-api
+    spec:
+      serviceAccountName: elp-api
+      containers:
+        - name: api
+          image: ghcr.io/trains-io/elp-api:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: API_ADDR
+              value: ":8080"
+            - name: NATS_URL
+              value: nats://nats.default.svc.cluster.local:4222
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true

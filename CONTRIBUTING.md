@@ -114,6 +114,28 @@ curl -N http://localhost:8080/api/v1/namespaces/default/devices/stream
 
 CORS allows `http://localhost:5173` and `:3000` for a future web UI.
 
+### Run in-cluster (kind)
+
+Deploy the API into the cluster so it uses in-cluster kubeconfig and NATS
+without host port-forwards:
+
+```bash
+make dev-infra-up          # kind + NATS
+make operator-dev-install  # Z21Device CRD + controller
+make api-dev-install       # build elp-api:local, load into kind, apply deploy/api
+make api-port-forward      # terminal 2 → http://localhost:8080
+```
+
+Requires NATS (`make nats-install` or `make dev-infra-up`). The Deployment sets
+`NATS_URL=nats://nats.default.svc.cluster.local:4222` for control commands.
+
+```bash
+curl http://localhost:8080/healthz
+curl http://localhost:8080/api/v1/namespaces/default/devices
+```
+
+Remove with `make api-uninstall`.
+
 ## Make targets
 
 ### Operator
@@ -148,7 +170,13 @@ CORS allows `http://localhost:5173` and `:3000` for a future web UI.
 |--------|-------------|
 | `make test-api` | Unit tests for `apps/api` |
 | `make build-api` | Build `bin/elp-api` |
-| `make run-api` | Build (if needed) and run the HTTP API |
+| `make run-api` | Build (if needed) and run the HTTP API on the host |
+| `make api-image` | Build `elp-api:local` container image |
+| `make kind-load-api` | Load the local API image into kind |
+| `make api-install` | Apply `deploy/api` (Deployment, Service, RBAC) |
+| `make api-uninstall` | Remove the in-cluster API |
+| `make api-dev-install` | Image build + kind load + install |
+| `make api-port-forward` | Forward `svc/elp-api` to `localhost:8080` |
 
 ## Developing the operator
 
@@ -283,12 +311,15 @@ service names such as `nats.default.svc.cluster.local` resolve via CoreDNS.
 ```
 elp/
 ├── Makefile                      # dev targets (see make help)
-├── deploy/nats/                  # in-cluster NATS for local dev
+├── deploy/
+│   ├── api/                      # in-cluster API (Deployment, RBAC, Service)
+│   └── nats/                     # in-cluster NATS for local dev
 ├── packages/
 │   ├── api/openapi/              # OpenAPI contract for the HTTP API
 │   └── events/                   # shared NATS event/control types
 ├── tools/kind/                   # kind config + host.docker.internal setup
 ├── apps/api/                     # HTTP API (REST + SSE device stream)
+│   └── Dockerfile                # container image (build from repo root)
 └── operators/z21-device/
     ├── api/v1alpha1/             # CRD Go types
     ├── cmd/                      # controller manager entrypoint

@@ -236,8 +236,8 @@ type Z21DeviceStatus struct {
 // +kubebuilder:printcolumn:name="Gateway",type=string,JSONPath=`.status.conditions[?(@.type=="GatewayReady")].status`
 // +kubebuilder:printcolumn:name="Reachable",type=string,JSONPath=`.status.conditions[?(@.type=="DeviceReachable")].status`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
-// +kubebuilder:validation:XValidation:rule="self.backend.type != 'hardware' || has(self.backend.hardware)",message="backend.hardware is required when backend.type is hardware"
-// +kubebuilder:validation:XValidation:rule="self.backend.type != 'simulator' || !has(self.backend.hardware)",message="backend.hardware must not be set when backend.type is simulator"
+// +kubebuilder:validation:XValidation:rule="!has(self.spec) || self.spec.backend.type != 'hardware' || has(self.spec.backend.hardware)",message="backend.hardware is required when backend.type is hardware"
+// +kubebuilder:validation:XValidation:rule="!has(self.spec) || self.spec.backend.type != 'simulator' || !has(self.spec.backend.hardware)",message="backend.hardware must not be set when backend.type is simulator"
 
 // Z21Device represents a physical or virtual Z21 command station managed in-cluster.
 type Z21Device struct {

@@ -320,9 +320,9 @@ spec:
         type: object
         x-kubernetes-validations:
         - message: backend.hardware is required when backend.type is hardware
-          rule: self.backend.type != 'hardware' || has(self.backend.hardware)
+          rule: '!has(self.spec) || self.spec.backend.type != ''hardware'' || has(self.spec.backend.hardware)'
         - message: backend.hardware must not be set when backend.type is simulator
-          rule: self.backend.type != 'simulator' || !has(self.backend.hardware)
+          rule: '!has(self.spec) || self.spec.backend.type != ''simulator'' || !has(self.spec.backend.hardware)'
     served: true
     storage: true
     subresources:

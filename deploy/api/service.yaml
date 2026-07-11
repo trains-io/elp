@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: elp-api
+  labels:
+    app.kubernetes.io/name: elp-api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: elp-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

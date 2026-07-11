@@ -3,7 +3,7 @@
 .PHONY: help test generate-operator build-operator clean \
 	operator-image kind-load-operator operator-install-crd operator-install operator-uninstall operator-dev-install \
 	kind-up kind-down kind-configure-host nats-install nats-uninstall dev-infra-up dev-infra-down \
-	test-api build-api run-api
+	test-api build-api run-api api-image kind-load-api api-install api-uninstall api-dev-install api-port-forward
 
 KIND_CLUSTER_NAME ?= elp
 KIND_CONFIG = tools/kind/kind-config.yaml
@@ -14,6 +14,8 @@ OPERATOR_KUSTOMIZE = $(OPERATOR_DIR)/config/default
 OPERATOR_IMAGE = z21-device-controller:local
 API_DIR = apps/api
 API_BIN = bin/elp-api
+API_KUSTOMIZE = deploy/api
+API_IMAGE = elp-api:local
 # Pin stable k8s; override to match your kind release notes if needed.
 KIND_NODE_IMAGE ?= kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 
@@ -122,3 +124,26 @@ build-api: ## Build bin/elp-api
 
 run-api: build-api ## Run HTTP API on :8080 (see CONTRIBUTING.md for NATS_URL with kind)
 	$(API_BIN)
+
+api-image: ## Build the API container image for local kind
+	docker build -t $(API_IMAGE) -f $(API_DIR)/Dockerfile .
+
+kind-load-api: ## Load the local API image into the kind cluster
+	@if ! kind get clusters 2>/dev/null | grep -qx '$(KIND_CLUSTER_NAME)'; then \
+		echo "kind cluster '$(KIND_CLUSTER_NAME)' not found; run make kind-up first"; exit 1; \
+	fi
+	kind load docker-image $(API_IMAGE) --name $(KIND_CLUSTER_NAME)
+
+api-install: ## Install API Deployment, Service, and RBAC into the cluster
+	kubectl apply -k $(API_KUSTOMIZE)
+	kubectl rollout status deployment/elp-api -n default --timeout=120s
+	@echo "In-cluster URL: http://elp-api.default.svc.cluster.local:8080"
+	@echo "Host access: make api-port-forward"
+
+api-uninstall: ## Remove in-cluster API Deployment, Service, and RBAC
+	kubectl delete -k $(API_KUSTOMIZE) --ignore-not-found
+
+api-dev-install: api-image kind-load-api api-install ## Build, load, and install API on kind
+
+api-port-forward: ## Forward in-cluster API to localhost:8080
+	kubectl port-forward -n default svc/elp-api 8080:8080
