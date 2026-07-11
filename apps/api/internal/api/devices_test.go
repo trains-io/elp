@@ -26,6 +26,12 @@ func (r *recordingControl) PublishSetBroadcastFlags(context.Context, *z21v1alpha
 	return nil
 }
 
+type noopControl struct{}
+
+func (noopControl) PublishSetBroadcastFlags(context.Context, *z21v1alpha1.Z21Device) error {
+	return nil
+}
+
 func testDeviceCR() *z21v1alpha1.Z21Device {
 	flags := z21v1alpha1.DefaultBroadcastFlags
 	return &z21v1alpha1.Z21Device{
@@ -54,7 +60,7 @@ func TestListDevices(t *testing.T) {
 	cr := testDeviceCR()
 	h := &DeviceHandler{
 		Client:  newFakeDeviceClient(t, cr),
-		Control: NoopControl(),
+		Control: noopControl{},
 	}
 
 	list, err := h.List(context.Background(), "default")
@@ -69,7 +75,7 @@ func TestListDevices(t *testing.T) {
 func TestCreateDeviceHTTP(t *testing.T) {
 	h := &DeviceHandler{
 		Client:  newFakeDeviceClient(t),
-		Control: NoopControl(),
+		Control: noopControl{},
 	}
 
 	body := `{

@@ -12,6 +12,7 @@ import (
 	"github.com/trains-io/elp/apps/api/internal/api"
 	"github.com/trains-io/elp/apps/api/internal/config"
 	"github.com/trains-io/elp/apps/api/internal/k8s"
+	apinats "github.com/trains-io/elp/apps/api/internal/nats"
 )
 
 func main() {
@@ -27,6 +28,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	control := apinats.NewPublisher(cfg.NATSURL)
+	defer control.Close()
+	if cfg.NATSURL != "" {
+		slog.Info("nats control publisher using API override", "url", cfg.NATSURL)
+	} else {
+		slog.Info("nats control publisher using device spec nats urls")
+	}
+
 	hub := api.NewStreamHub()
 	go func() {
 		if err := k8s.StartDeviceWatch(ctx, hub); err != nil && ctx.Err() == nil {
@@ -36,7 +45,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: api.NewServer(k8sClient, hub, api.NoopControl()).Handler(),
+		Handler: api.NewServer(k8sClient, hub, control).Handler(),
 	}
 
 	go func() {
