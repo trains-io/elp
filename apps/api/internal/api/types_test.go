@@ -65,6 +65,47 @@ func TestSpecFromCreateDefaultsBroadcastFlags(t *testing.T) {
 	}
 }
 
+func TestSpecFromCreateSimulator(t *testing.T) {
+	spec, err := specFromCreate(DeviceCreate{
+		Name: "sim-bench",
+		Backend: &BackendCreate{
+			Type: "simulator",
+			Simulator: &SimulatorCreate{
+				Image: "ghcr.io/trains-io/z21-sim:latest",
+			},
+		},
+		NATS: NatsConfig{URL: "nats://nats:4222"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Backend.Type != z21v1alpha1.BackendSimulator {
+		t.Fatalf("backend type = %q", spec.Backend.Type)
+	}
+	if spec.Backend.Hardware != nil {
+		t.Fatal("expected no hardware backend")
+	}
+	if spec.Backend.Simulator == nil || spec.Backend.Simulator.Image != "ghcr.io/trains-io/z21-sim:latest" {
+		t.Fatalf("simulator = %#v", spec.Backend.Simulator)
+	}
+}
+
+func TestValidateDeviceCreate(t *testing.T) {
+	err := validateDeviceCreate(DeviceCreate{
+		Name: "sim",
+		Backend: &BackendCreate{
+			Type: "simulator",
+			Hardware: &HardwareCreate{
+				Host: "192.168.0.42",
+			},
+		},
+		NATS: NatsConfig{URL: "nats://nats:4222"},
+	})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+}
+
 func TestDeviceFromCRStatusFields(t *testing.T) {
 	lockCode := uint8(0)
 	cr := &z21v1alpha1.Z21Device{

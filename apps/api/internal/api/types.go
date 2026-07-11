@@ -31,10 +31,26 @@ type Device struct {
 
 type DeviceCreate struct {
 	Name           string         `json:"name"`
-	Address        string         `json:"address"`
+	Address        string         `json:"address,omitempty"`
+	Backend        *BackendCreate `json:"backend,omitempty"`
 	NATS           NatsConfig     `json:"nats"`
 	Gateway        *GatewayConfig `json:"gateway,omitempty"`
 	BroadcastFlags *uint32        `json:"broadcastFlags,omitempty"`
+}
+
+type BackendCreate struct {
+	Type      string            `json:"type"`
+	Hardware  *HardwareCreate   `json:"hardware,omitempty"`
+	Simulator *SimulatorCreate  `json:"simulator,omitempty"`
+}
+
+type HardwareCreate struct {
+	Host string `json:"host"`
+	Port int32  `json:"port,omitempty"`
+}
+
+type SimulatorCreate struct {
+	Image string `json:"image,omitempty"`
 }
 
 type DeviceUpdate struct {
@@ -144,16 +160,13 @@ func conditionIsTrue(conditions []metav1.Condition, condType string) bool {
 }
 
 func specFromCreate(req DeviceCreate) (z21v1alpha1.Z21DeviceSpec, error) {
-	hw, err := parseHardwareAddress(req.Address)
+	backend, err := backendFromCreate(req)
 	if err != nil {
 		return z21v1alpha1.Z21DeviceSpec{}, err
 	}
 
 	spec := z21v1alpha1.Z21DeviceSpec{
-		Backend: z21v1alpha1.BackendSpec{
-			Type:     z21v1alpha1.BackendHardware,
-			Hardware: &hw,
-		},
+		Backend: backend,
 		NATS: z21v1alpha1.NatsSpec{
 			URL:           req.NATS.URL,
 			SubjectPrefix: req.NATS.SubjectPrefix,
@@ -173,6 +186,97 @@ func specFromCreate(req DeviceCreate) (z21v1alpha1.Z21DeviceSpec, error) {
 		spec.BroadcastFlags = &flags
 	}
 	return spec, nil
+}
+
+func validateDeviceCreate(req DeviceCreate) error {
+	if req.Name == "" {
+		return fmt.Errorf("name is required")
+	}
+	if req.NATS.URL == "" {
+		return fmt.Errorf("nats.url is required")
+	}
+	if req.Backend != nil && req.Address != "" {
+		return fmt.Errorf("use either address or backend, not both")
+	}
+	if req.Backend == nil && req.Address == "" {
+		return fmt.Errorf("address or backend is required")
+	}
+	if req.Backend != nil {
+		if req.Backend.Type == "" {
+			return fmt.Errorf("backend.type is required")
+		}
+		switch z21v1alpha1.BackendType(req.Backend.Type) {
+		case z21v1alpha1.BackendHardware:
+			if req.Backend.Simulator != nil {
+				return fmt.Errorf("backend.simulator must not be set for hardware backend")
+			}
+		case z21v1alpha1.BackendSimulator:
+			if req.Backend.Hardware != nil {
+				return fmt.Errorf("backend.hardware must not be set for simulator backend")
+			}
+		default:
+			return fmt.Errorf("unsupported backend type %q", req.Backend.Type)
+		}
+	}
+	return nil
+}
+
+func backendFromCreate(req DeviceCreate) (z21v1alpha1.BackendSpec, error) {
+	if req.Backend != nil {
+		switch z21v1alpha1.BackendType(req.Backend.Type) {
+		case z21v1alpha1.BackendHardware:
+			hw, err := hardwareFromCreate(req.Backend.Hardware, "")
+			if err != nil {
+				return z21v1alpha1.BackendSpec{}, err
+			}
+			return z21v1alpha1.BackendSpec{
+				Type:     z21v1alpha1.BackendHardware,
+				Hardware: &hw,
+			}, nil
+		case z21v1alpha1.BackendSimulator:
+			var sim *z21v1alpha1.SimulatorBackend
+			if req.Backend.Simulator != nil {
+				sim = &z21v1alpha1.SimulatorBackend{
+					Image: req.Backend.Simulator.Image,
+				}
+			}
+			return z21v1alpha1.BackendSpec{
+				Type:      z21v1alpha1.BackendSimulator,
+				Simulator: sim,
+			}, nil
+		default:
+			return z21v1alpha1.BackendSpec{}, fmt.Errorf("unsupported backend type %q", req.Backend.Type)
+		}
+	}
+
+	hw, err := parseHardwareAddress(req.Address)
+	if err != nil {
+		return z21v1alpha1.BackendSpec{}, err
+	}
+	return z21v1alpha1.BackendSpec{
+		Type:     z21v1alpha1.BackendHardware,
+		Hardware: &hw,
+	}, nil
+}
+
+func hardwareFromCreate(hw *HardwareCreate, address string) (z21v1alpha1.HardwareBackend, error) {
+	if address != "" {
+		if hw != nil && (hw.Host != "" || hw.Port != 0) {
+			return z21v1alpha1.HardwareBackend{}, fmt.Errorf("use either address or backend.hardware, not both")
+		}
+		return parseHardwareAddress(address)
+	}
+	if hw == nil || hw.Host == "" {
+		return z21v1alpha1.HardwareBackend{}, fmt.Errorf("backend.hardware.host is required for hardware backend")
+	}
+	out := z21v1alpha1.HardwareBackend{
+		Host: hw.Host,
+		Port: hw.Port,
+	}
+	if out.Port != 0 && (out.Port < 1 || out.Port > 65535) {
+		return z21v1alpha1.HardwareBackend{}, fmt.Errorf("invalid backend.hardware.port %d", out.Port)
+	}
+	return out, nil
 }
 
 func applyUpdate(spec *z21v1alpha1.Z21DeviceSpec, req DeviceUpdate) error {

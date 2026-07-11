@@ -105,6 +105,39 @@ func TestCreateDeviceHTTP(t *testing.T) {
 	}
 }
 
+func TestCreateDeviceSimulatorHTTP(t *testing.T) {
+	h := &DeviceHandler{
+		Client:  newFakeDeviceClient(t),
+		Control: noopControl{},
+	}
+
+	body := `{
+		"name": "sim-bench",
+		"backend": { "type": "simulator" },
+		"nats": { "url": "nats://nats.default.svc:4222" }
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+	req = req.WithContext(context.Background())
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("namespace", "default")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	rr := httptest.NewRecorder()
+	h.createDevice(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+
+	var got Device
+	if err := json.NewDecoder(rr.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != "sim-bench" || got.Address != "z21-sim-sim-bench.default.svc.cluster.local:21105" {
+		t.Fatalf("device = %#v", got)
+	}
+}
+
 func TestPatchBroadcastFlagsPublishesControl(t *testing.T) {
 	cr := testDeviceCR()
 	control := &recordingControl{}

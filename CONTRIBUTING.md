@@ -195,6 +195,10 @@ elpctl device create basement \
   --host-network \
   --node-selector trains.io/edge=true
 
+elpctl device create sim-bench \
+  --backend simulator \
+  --gateway-image z21-gateway:local
+
 elpctl device list
 elpctl device get basement
 elpctl device watch basement

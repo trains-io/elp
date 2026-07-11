@@ -28,11 +28,13 @@ func newDeviceCmd() *cobra.Command {
 
 func newDeviceCreateCmd() *cobra.Command {
 	var (
+		backendType    string
 		address        string
 		natsURL        string
 		subjectPrefix  string
 		hostNetwork    bool
 		gatewayImage   string
+		simulatorImage string
 		nodeSelector   []string
 		broadcastFlags uint32
 		setBroadcast   bool
@@ -44,13 +46,32 @@ func newDeviceCreateCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req := client.DeviceCreate{
-				Name:    args[0],
-				Address: address,
+				Name: args[0],
 				NATS: client.NatsConfig{
 					URL:           natsURL,
 					SubjectPrefix: subjectPrefix,
 				},
 			}
+
+			switch backendType {
+			case "hardware":
+				if address == "" {
+					return fmt.Errorf("--address is required for hardware backend")
+				}
+				req.Address = address
+			case "simulator":
+				sim := &client.SimulatorCreate{}
+				if simulatorImage != "" {
+					sim.Image = simulatorImage
+				}
+				req.Backend = &client.BackendCreate{
+					Type:      "simulator",
+					Simulator: sim,
+				}
+			default:
+				return fmt.Errorf("unsupported backend type %q", backendType)
+			}
+
 			if hostNetwork || gatewayImage != "" || len(nodeSelector) > 0 {
 				req.Gateway = &client.GatewayConfig{
 					Image:        gatewayImage,
@@ -72,7 +93,9 @@ func newDeviceCreateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&address, "address", "", "Z21 UDP endpoint host:port (required)")
+	cmd.Flags().StringVar(&backendType, "backend", "hardware", "Backend type: hardware or simulator")
+	cmd.Flags().StringVar(&address, "address", "", "Z21 UDP endpoint host:port (required for hardware backend)")
+	cmd.Flags().StringVar(&simulatorImage, "simulator-image", "", "Simulator container image (simulator backend only)")
 	cmd.Flags().StringVar(&natsURL, "nats-url", "nats://nats.default.svc.cluster.local:4222", "NATS URL for gateway events and control")
 	cmd.Flags().StringVar(&subjectPrefix, "nats-subject-prefix", "", "NATS subject prefix override")
 	cmd.Flags().BoolVar(&hostNetwork, "host-network", false, "Run gateway with hostNetwork")
@@ -80,7 +103,6 @@ func newDeviceCreateCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&nodeSelector, "node-selector", nil, "Gateway nodeSelector as key=value (repeatable)")
 	cmd.Flags().Uint32Var(&broadcastFlags, "broadcast-flags", 0, "LAN_SET_BROADCASTFLAGS bitmask")
 	cmd.Flags().BoolVar(&setBroadcast, "set-broadcast-flags", false, "Apply --broadcast-flags (otherwise API default applies)")
-	_ = cmd.MarkFlagRequired("address")
 
 	return cmd
 }

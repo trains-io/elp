@@ -20,10 +20,26 @@ type Device struct {
 
 type DeviceCreate struct {
 	Name           string         `json:"name"`
-	Address        string         `json:"address"`
+	Address        string         `json:"address,omitempty"`
+	Backend        *BackendCreate `json:"backend,omitempty"`
 	NATS           NatsConfig     `json:"nats"`
 	Gateway        *GatewayConfig `json:"gateway,omitempty"`
 	BroadcastFlags *uint32        `json:"broadcastFlags,omitempty"`
+}
+
+type BackendCreate struct {
+	Type      string           `json:"type"`
+	Hardware  *HardwareCreate  `json:"hardware,omitempty"`
+	Simulator *SimulatorCreate `json:"simulator,omitempty"`
+}
+
+type HardwareCreate struct {
+	Host string `json:"host"`
+	Port int32  `json:"port,omitempty"`
+}
+
+type SimulatorCreate struct {
+	Image string `json:"image,omitempty"`
 }
 
 type NatsConfig struct {

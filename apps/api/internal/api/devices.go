@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -62,8 +61,8 @@ func (h *DeviceHandler) createDevice(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if req.Name == "" || req.Address == "" || req.NATS.URL == "" {
-		writeError(w, http.StatusBadRequest, errors.New("name, address, and nats.url are required"))
+	if err := validateDeviceCreate(req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 

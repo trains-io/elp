@@ -189,12 +189,15 @@ components:
 
     DeviceCreate:
       type: object
-      required: [name, address, nats]
+      required: [name, nats]
       properties:
         name:
           type: string
         address:
           type: string
+          description: Shorthand for a hardware backend (host:port). Mutually exclusive with backend.
+        backend:
+          $ref: "#/components/schemas/BackendCreate"
         nats:
           $ref: "#/components/schemas/NatsConfig"
         gateway:
@@ -202,6 +205,34 @@ components:
         broadcastFlags:
           type: integer
           format: uint32
+
+    BackendCreate:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [hardware, simulator]
+        hardware:
+          $ref: "#/components/schemas/HardwareCreate"
+        simulator:
+          $ref: "#/components/schemas/SimulatorCreate"
+
+    HardwareCreate:
+      type: object
+      required: [host]
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+          format: int32
+
+    SimulatorCreate:
+      type: object
+      properties:
+        image:
+          type: string
 
     DeviceUpdate:
       type: object
