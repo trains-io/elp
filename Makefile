@@ -2,7 +2,7 @@
 
 .PHONY: help test generate-operator build-operator clean \
 	operator-image kind-load-operator operator-install-crd operator-install operator-uninstall operator-dev-install \
-	kind-up kind-down kind-configure-host nats-install nats-uninstall dev-infra-up dev-infra-down \
+	kind-up kind-down kind-configure-host metallb-install metallb-uninstall nats-install nats-uninstall dev-infra-up dev-infra-down \
 	test-api build-api run-api api-image kind-load-api api-install api-uninstall api-dev-install api-port-forward \
 	test-elpctl build-elpctl
 
@@ -21,6 +21,8 @@ ELPCTL_DIR = apps/elpctl
 ELPCTL_BIN = bin/elpctl
 # Pin stable k8s; override to match your kind release notes if needed.
 KIND_NODE_IMAGE ?= kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
+METALLB_VERSION ?= v0.14.9
+METALLB_MANIFEST = https://raw.githubusercontent.com/metallb/metallb/$(METALLB_VERSION)/config/manifests/metallb-native.yaml
 
 ##@ General
 
@@ -104,6 +106,19 @@ kind-down: ## Delete local kind cluster
 		echo "kind cluster '$(KIND_CLUSTER_NAME)' does not exist"; \
 	fi
 
+metallb-install: ## Install MetalLB and configure a LoadBalancer IP pool for kind
+	@if ! kind get clusters 2>/dev/null | grep -qx '$(KIND_CLUSTER_NAME)'; then \
+		echo "kind cluster '$(KIND_CLUSTER_NAME)' not found; run make kind-up first"; exit 1; \
+	fi
+	kubectl apply -f $(METALLB_MANIFEST)
+	kubectl rollout status deployment/controller -n metallb-system --timeout=120s
+	kubectl rollout status daemonset/speaker -n metallb-system --timeout=120s
+	bash tools/kind/metallb-configure-pool.sh
+
+metallb-uninstall: ## Remove MetalLB from the cluster
+	kubectl delete ipaddresspool,l2advertisement -n metallb-system --all --ignore-not-found
+	kubectl delete -f $(METALLB_MANIFEST) --ignore-not-found
+
 nats-install: ## Install NATS into the default namespace
 	kubectl apply -k deploy/nats
 	kubectl rollout status deployment/nats -n default --timeout=120s
@@ -112,7 +127,7 @@ nats-install: ## Install NATS into the default namespace
 nats-uninstall: ## Remove NATS from the cluster
 	kubectl delete -k deploy/nats --ignore-not-found
 
-dev-infra-up: kind-up nats-install ## Bring up kind cluster and install NATS
+dev-infra-up: kind-up metallb-install nats-install ## Bring up kind cluster, MetalLB, and NATS
 
 dev-infra-down: kind-down ## Tear down kind cluster
 
@@ -141,14 +156,16 @@ api-install: ## Install API Deployment, Service, and RBAC into the cluster
 	kubectl apply -k $(API_KUSTOMIZE)
 	kubectl rollout status deployment/elp-api -n default --timeout=120s
 	@echo "In-cluster URL: http://elp-api.default.svc.cluster.local:8080"
-	@echo "Host access: make api-port-forward"
+	@IP=$$(bash tools/kind/wait-loadbalancer.sh elp-api default 120); \
+	echo "External URL: http://$$IP:8080"; \
+	echo "elpctl: ELP_SERVER=http://$$IP:8080 ./bin/elpctl device list"
 
 api-uninstall: ## Remove in-cluster API Deployment, Service, and RBAC
 	kubectl delete -k $(API_KUSTOMIZE) --ignore-not-found
 
 api-dev-install: api-image kind-load-api api-install ## Build, load, and install API on kind
 
-api-port-forward: ## Forward in-cluster API to localhost:8080
+api-port-forward: ## Fallback: forward in-cluster API to localhost:8080
 	kubectl port-forward -n default svc/elp-api 8080:8080
 
 ##@ elpctl

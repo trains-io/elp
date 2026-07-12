@@ -116,23 +116,31 @@ CORS allows `http://localhost:5173` and `:3000` for a future web UI.
 
 ### Run in-cluster (kind)
 
-Deploy the API into the cluster so it uses in-cluster kubeconfig and NATS
-without host port-forwards:
+Deploy the API into the cluster so it uses in-cluster kubeconfig and NATS.
+`make dev-infra-up` installs MetalLB so the API `LoadBalancer` service gets an
+external IP reachable from your host (no port-forward required).
 
 ```bash
-make dev-infra-up          # kind + NATS
+make dev-infra-up          # kind + MetalLB + NATS
 make operator-dev-install  # Z21Device CRD + controller
 make api-dev-install       # build elp-api:local, load into kind, apply deploy/api
-make api-port-forward      # terminal 2 → http://localhost:8080
 ```
+
+`make api-install` prints the external URL when MetalLB assigns an IP. Use it
+with elpctl:
+
+```bash
+export ELP_SERVER=http://<EXTERNAL-IP>:8080
+curl "$ELP_SERVER/healthz"
+curl "$ELP_SERVER/api/v1/namespaces/default/devices"
+./bin/elpctl device list
+```
+
+If the IP is not shown, check `kubectl get svc elp-api`. As a fallback you can
+still use `make api-port-forward` for `http://localhost:8080`.
 
 Requires NATS (`make nats-install` or `make dev-infra-up`). The Deployment sets
 `NATS_URL=nats://nats.default.svc.cluster.local:4222` for control commands.
-
-```bash
-curl http://localhost:8080/healthz
-curl http://localhost:8080/api/v1/namespaces/default/devices
-```
 
 Remove with `make api-uninstall`.
 
@@ -159,9 +167,11 @@ Remove with `make api-uninstall`.
 | `make kind-up` | Create/configure kind cluster `elp` |
 | `make kind-down` | Delete kind cluster |
 | `make kind-configure-host` | Re-apply `host.docker.internal` DNS (after `kind-up`) |
+| `make metallb-install` | Install MetalLB and configure a kind Docker-network IP pool |
+| `make metallb-uninstall` | Remove MetalLB |
 | `make nats-install` | Install NATS into `default` |
 | `make nats-uninstall` | Remove NATS |
-| `make dev-infra-up` | `kind-up` + `nats-install` |
+| `make dev-infra-up` | `kind-up` + `metallb-install` + `nats-install` |
 | `make dev-infra-down` | `kind-down` |
 
 ### API
@@ -173,10 +183,10 @@ Remove with `make api-uninstall`.
 | `make run-api` | Build (if needed) and run the HTTP API on the host |
 | `make api-image` | Build `elp-api:local` container image |
 | `make kind-load-api` | Load the local API image into kind |
-| `make api-install` | Apply `deploy/api` (Deployment, Service, RBAC) |
+| `make api-install` | Apply `deploy/api` (Deployment, LoadBalancer Service, RBAC) |
 | `make api-uninstall` | Remove the in-cluster API |
 | `make api-dev-install` | Image build + kind load + install |
-| `make api-port-forward` | Forward `svc/elp-api` to `localhost:8080` |
+| `make api-port-forward` | Fallback: forward `svc/elp-api` to `localhost:8080` |
 | `make test-elpctl` | Unit tests for `apps/elpctl` |
 | `make build-elpctl` | Build `bin/elpctl` |
 
