@@ -280,6 +280,9 @@ const DefaultBroadcastFlags uint32 = broadcastFlagXpressNet | broadcastFlagSyste
 // DefaultSimulatorImage is the in-cluster z21 simulator image.
 const DefaultSimulatorImage = "ghcr.io/trains-io/z21-sim:latest"
 
+// DefaultWorkloadNamespace is where gateway and simulator workloads are reconciled.
+const DefaultWorkloadNamespace = "elp"
+
 // BroadcastFlagsValue returns the effective broadcast flags for this device.
 func (d *Z21Device) BroadcastFlagsValue() uint32 {
 	if d.Spec.BroadcastFlags != nil {
@@ -319,7 +322,7 @@ func (d *Z21Device) Z21Address() (string, error) {
 		}
 		return net.JoinHostPort(d.Spec.Backend.Hardware.Host, fmt.Sprintf("%d", port)), nil
 	case BackendSimulator:
-		return net.JoinHostPort(SimulatorServiceFQDN(d.Namespace, d.Name), fmt.Sprintf("%d", DefaultZ21Port)), nil
+		return net.JoinHostPort(SimulatorServiceFQDN(DefaultWorkloadNamespace, d.Name), fmt.Sprintf("%d", DefaultZ21Port)), nil
 	default:
 		return "", fmt.Errorf("unsupported backend type %q", d.Spec.Backend.Type)
 	}

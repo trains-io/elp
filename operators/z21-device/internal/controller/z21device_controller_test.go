@@ -94,7 +94,7 @@ func TestDesiredGatewayDeploymentSimulatorAddress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if z21Addr != "z21-sim-lab.default.svc.cluster.local:21105" {
+	if z21Addr != "z21-sim-lab.elp.svc.cluster.local:21105" {
 		t.Fatalf("Z21Address = %q", z21Addr)
 	}
 

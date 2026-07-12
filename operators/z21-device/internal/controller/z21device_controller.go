@@ -24,10 +24,9 @@ import (
 )
 
 const (
-	defaultGatewayImage      = "ghcr.io/trains-io/z21-gateway:latest"
-	defaultWorkloadNamespace = "elp"
-	gatewayComponent         = "z21-gateway"
-	simulatorComponent       = "z21-sim"
+	defaultGatewayImage = "ghcr.io/trains-io/z21-gateway:latest"
+	gatewayComponent    = "z21-gateway"
+	simulatorComponent  = "z21-sim"
 )
 
 // Z21DeviceReconciler reconciles a Z21Device object by managing its gateway workload.
@@ -170,12 +169,9 @@ func (r *Z21DeviceReconciler) reconcileSimulatorService(ctx context.Context, dev
 
 	svc := &corev1.Service{}
 	svc.Name = name
-	svc.Namespace = device.Namespace
+	svc.Namespace = r.workloadNamespace()
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
-		if err := controllerutil.SetControllerReference(device, svc, r.Scheme); err != nil {
-			return err
-		}
 		svc.Labels = labels
 		svc.Spec = corev1.ServiceSpec{
 			Type:     corev1.ServiceTypeClusterIP,
@@ -201,22 +197,19 @@ func (r *Z21DeviceReconciler) reconcileSimulatorDeployment(ctx context.Context, 
 
 	deploy := &appsv1.Deployment{}
 	deploy.Name = name
-	deploy.Namespace = device.Namespace
+	deploy.Namespace = r.workloadNamespace()
 
 	desired := desiredSimulatorDeployment(device)
 	desired.Name = name
-	desired.Namespace = device.Namespace
+	desired.Namespace = r.workloadNamespace()
 	desired.Labels = labels
 
-	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: device.Namespace}, deploy); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: r.workloadNamespace()}, deploy); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("get simulator deployment: %w", err)
 		}
 		deploy = desired
 		deploy.Labels = labels
-		if err := controllerutil.SetControllerReference(device, deploy, r.Scheme); err != nil {
-			return nil, err
-		}
 		if err := r.Create(ctx, deploy); err != nil {
 			return nil, fmt.Errorf("create simulator deployment: %w", err)
 		}
@@ -229,9 +222,6 @@ func (r *Z21DeviceReconciler) reconcileSimulatorDeployment(ctx context.Context, 
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
-		if err := controllerutil.SetControllerReference(device, deploy, r.Scheme); err != nil {
-			return err
-		}
 		deploy.Labels = labels
 		deploy.Spec = desired.Spec
 		return nil
@@ -247,17 +237,18 @@ func (r *Z21DeviceReconciler) reconcileSimulatorDeployment(ctx context.Context, 
 func (r *Z21DeviceReconciler) deleteSimulator(ctx context.Context, device *z21v1alpha1.Z21Device) error {
 	deployName := simulatorDeploymentName(device)
 	svcName := z21v1alpha1.SimulatorServiceName(device.Name)
+	ns := r.workloadNamespace()
 
 	deploy := &appsv1.Deployment{}
 	deploy.Name = deployName
-	deploy.Namespace = device.Namespace
+	deploy.Namespace = ns
 	if err := r.Delete(ctx, deploy); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("delete simulator deployment: %w", err)
 	}
 
 	svc := &corev1.Service{}
 	svc.Name = svcName
-	svc.Namespace = device.Namespace
+	svc.Namespace = ns
 	if err := r.Delete(ctx, svc); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("delete simulator service: %w", err)
 	}
@@ -267,7 +258,7 @@ func (r *Z21DeviceReconciler) deleteSimulator(ctx context.Context, device *z21v1
 func (r *Z21DeviceReconciler) reconcileGatewayServiceAccount(ctx context.Context, device *z21v1alpha1.Z21Device) (string, error) {
 	name := gatewayServiceAccountName(device)
 	labels := gatewayLabels(device)
-	ns := r.gatewayNamespace()
+	ns := r.workloadNamespace()
 
 	sa := &corev1.ServiceAccount{}
 	sa.Name = name
@@ -329,7 +320,7 @@ func (r *Z21DeviceReconciler) reconcileGatewayRBAC(ctx context.Context, device *
 		binding.Subjects = []rbacv1.Subject{{
 			Kind:      rbacv1.ServiceAccountKind,
 			Name:      saName,
-			Namespace: r.gatewayNamespace(),
+			Namespace: r.workloadNamespace(),
 		}}
 		return nil
 	}); err != nil {
@@ -350,14 +341,14 @@ func (r *Z21DeviceReconciler) reconcileGatewayDeployment(ctx context.Context, de
 
 	deploy := &appsv1.Deployment{}
 	deploy.Name = name
-	deploy.Namespace = r.gatewayNamespace()
+	deploy.Namespace = r.workloadNamespace()
 
 	desired := desiredGatewayDeployment(device, r.gatewayImage(), saName, z21Address)
 	desired.Name = name
-	desired.Namespace = r.gatewayNamespace()
+	desired.Namespace = r.workloadNamespace()
 	desired.Labels = labels
 
-	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: r.gatewayNamespace()}, deploy); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: r.workloadNamespace()}, deploy); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("get deployment: %w", err)
 		}
@@ -504,7 +495,7 @@ func deploymentFailed(deploy *appsv1.Deployment) bool {
 }
 
 func (r *Z21DeviceReconciler) deleteGateway(ctx context.Context, device *z21v1alpha1.Z21Device) error {
-	ns := r.gatewayNamespace()
+	ns := r.workloadNamespace()
 	deployName := gatewayDeploymentName(device)
 	saName := gatewayServiceAccountName(device)
 
@@ -524,11 +515,11 @@ func (r *Z21DeviceReconciler) deleteGateway(ctx context.Context, device *z21v1al
 	return nil
 }
 
-func (r *Z21DeviceReconciler) gatewayNamespace() string {
+func (r *Z21DeviceReconciler) workloadNamespace() string {
 	if r.WorkloadNamespace != "" {
 		return r.WorkloadNamespace
 	}
-	return defaultWorkloadNamespace
+	return z21v1alpha1.DefaultWorkloadNamespace
 }
 
 func (r *Z21DeviceReconciler) gatewayImage() string {

@@ -341,7 +341,7 @@ Useful status fields:
 - `status.conditions[GatewayReady]` — gateway Deployment ready (set by operator)
 - `status.conditions[DeviceReachable]` — Z21 reachable (set by gateway, when deployed)
 
-Gateway pods are reconciled in the `elp` namespace (see controller
+Gateway and simulator pods are reconciled in the `elp` namespace (see controller
 `--workload-namespace`). Per-device RoleBindings remain in the `Z21Device`
 namespace so the gateway can patch device status.
 

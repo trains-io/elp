@@ -114,7 +114,7 @@ func TestCreateDeviceSimulator(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(Device{
 			Name:      "dev-01",
 			Namespace: "default",
-			Address:   "z21-sim-dev-01.default.svc.cluster.local:21105",
+			Address:   "z21-sim-dev-01.elp.svc.cluster.local:21105",
 			NATS:      NatsConfig{URL: "nats://nats:4222"},
 		})
 	}))
