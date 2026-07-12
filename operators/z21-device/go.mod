@@ -5,11 +5,14 @@ go 1.24.0
 toolchain go1.24.4
 
 require (
+	github.com/trains-io/elp/packages/canpool v0.0.0
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
 	k8s.io/client-go v0.33.0
 	sigs.k8s.io/controller-runtime v0.21.0
 )
+
+replace github.com/trains-io/elp/packages/canpool => ../../packages/canpool
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

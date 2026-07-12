@@ -290,6 +290,16 @@ func (r *Z21DeviceReconciler) reconcileGatewayRBAC(ctx context.Context, device *
 		role.Rules = []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{"z21.trains.io"},
+				Resources: []string{"candetectors"},
+				Verbs:     []string{"get", "list", "watch", "create", "patch", "update"},
+			},
+			{
+				APIGroups: []string{"z21.trains.io"},
+				Resources: []string{"candetectors/status"},
+				Verbs:     []string{"get", "patch", "update"},
+			},
+			{
+				APIGroups: []string{"z21.trains.io"},
 				Resources: []string{"z21devices"},
 				Verbs:     []string{"get"},
 			},

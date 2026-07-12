@@ -58,6 +58,25 @@ rules:
 - apiGroups:
   - z21.trains.io
   resources:
+  - canaddresspools
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - z21.trains.io
+  resources:
+  - canaddresspools/status
+  - candetectors/status
+  - z21devices/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - z21.trains.io
+  resources:
+  - candetectors
   - z21devices
   verbs:
   - create
@@ -72,12 +91,4 @@ rules:
   resources:
   - z21devices/finalizers
   verbs:
-  - update
-- apiGroups:
-  - z21.trains.io
-  resources:
-  - z21devices/status
-  verbs:
-  - get
-  - patch
   - update
