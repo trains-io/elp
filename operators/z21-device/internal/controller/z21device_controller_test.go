@@ -157,6 +157,36 @@ func TestBroadcastFlagsDoNotChangeGatewayDeployment(t *testing.T) {
 	}
 }
 
+func TestDeviceStatusIsCurrentRequiresGatewayReadyCondition(t *testing.T) {
+	device := &z21v1alpha1.Z21Device{
+		ObjectMeta: metav1.ObjectMeta{Generation: 1},
+		Status: z21v1alpha1.Z21DeviceStatus{
+			Phase:               z21v1alpha1.PhaseRunning,
+			GatewayDeployment:   "z21-gateway-dev-01",
+			SimulatorDeployment: "z21-sim-dev-01",
+			SimulatorService:    "z21-sim-dev-01",
+			ObservedGeneration:  1,
+			Conditions: []metav1.Condition{
+				{Type: z21v1alpha1.ConditionDeviceReachable, Status: metav1.ConditionTrue},
+			},
+		},
+	}
+	in := statusInput{
+		gatewayDeploy:   &appsv1.Deployment{Status: appsv1.DeploymentStatus{ReadyReplicas: 1}},
+		simulatorDeploy: &appsv1.Deployment{Status: appsv1.DeploymentStatus{ReadyReplicas: 1}},
+		simulatorSvc:    "z21-sim-dev-01",
+		phase:           z21v1alpha1.PhaseRunning,
+	}
+	if deviceStatusIsCurrent(device, in, "z21-gateway-dev-01", "z21-sim-dev-01", metav1.ConditionTrue) {
+		t.Fatal("expected status patch when GatewayReady condition is missing")
+	}
+
+	setGatewayReadyCondition(device, metav1.ConditionTrue)
+	if !deviceStatusIsCurrent(device, in, "z21-gateway-dev-01", "z21-sim-dev-01", metav1.ConditionTrue) {
+		t.Fatal("expected no status patch when GatewayReady condition is present")
+	}
+}
+
 func TestComputePhase(t *testing.T) {
 	cases := []struct {
 		name     string

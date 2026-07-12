@@ -405,18 +405,12 @@ func (r *Z21DeviceReconciler) updateStatus(
 	}
 
 	gatewayReady := gatewayReadyStatus(in.gatewayDeploy)
-	setGatewayReadyCondition(latest, gatewayReady)
-
-	if latest.Status.Phase == in.phase &&
-		latest.Status.GatewayDeployment == gatewayName &&
-		latest.Status.SimulatorDeployment == simulatorName &&
-		latest.Status.SimulatorService == in.simulatorSvc &&
-		latest.Status.ObservedGeneration == latest.Generation &&
-		conditionStatus(latest.Status.Conditions, z21v1alpha1.ConditionGatewayReady) == gatewayReady {
+	if deviceStatusIsCurrent(latest, in, gatewayName, simulatorName, gatewayReady) {
 		return ctrl.Result{}, nil
 	}
 
 	patchBase := latest.DeepCopy()
+	setGatewayReadyCondition(latest, gatewayReady)
 	latest.Status.Phase = in.phase
 	latest.Status.GatewayDeployment = gatewayName
 	latest.Status.SimulatorDeployment = simulatorName
@@ -426,6 +420,20 @@ func (r *Z21DeviceReconciler) updateStatus(
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
+}
+
+func deviceStatusIsCurrent(
+	device *z21v1alpha1.Z21Device,
+	in statusInput,
+	gatewayName, simulatorName string,
+	gatewayReady metav1.ConditionStatus,
+) bool {
+	return device.Status.Phase == in.phase &&
+		device.Status.GatewayDeployment == gatewayName &&
+		device.Status.SimulatorDeployment == simulatorName &&
+		device.Status.SimulatorService == in.simulatorSvc &&
+		device.Status.ObservedGeneration == device.Generation &&
+		conditionStatus(device.Status.Conditions, z21v1alpha1.ConditionGatewayReady) == gatewayReady
 }
 
 func setGatewayReadyCondition(device *z21v1alpha1.Z21Device, status metav1.ConditionStatus) {
