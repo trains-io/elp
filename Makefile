@@ -129,7 +129,7 @@ metallb-uninstall: ## Remove MetalLB from the cluster
 nats-install: ## Install NATS into the default namespace
 	kubectl apply -k deploy/nats
 	kubectl rollout status deployment/nats -n default --timeout=120s
-	@echo "NATS client URL: nats://nats.default.svc.cluster.local:4222"
+	@echo "NATS client URL: nats://nats.default.svc.cluster.local.:4222"
 
 nats-uninstall: ## Remove NATS from the cluster
 	kubectl delete -k deploy/nats --ignore-not-found

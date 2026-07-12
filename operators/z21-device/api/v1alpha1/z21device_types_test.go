@@ -54,7 +54,7 @@ func TestZ21AddressSimulator(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if addr != "z21-sim-lab.elp.svc.cluster.local:21105" {
+	if addr != "z21-sim-lab.elp.svc.cluster.local.:21105" {
 		t.Fatalf("Z21Address = %q", addr)
 	}
 }

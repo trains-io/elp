@@ -11,7 +11,7 @@ spec:
     hardware:
       host: "192.168.0.42"
   nats:
-    url: "nats://nats.default.svc.cluster.local:4222"
+    url: "nats://nats.default.svc.cluster.local.:4222"
   gateway:
     image: z21-gateway:local
     hostNetwork: true

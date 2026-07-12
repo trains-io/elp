@@ -134,7 +134,7 @@ func TestCreateDeviceSimulatorHTTP(t *testing.T) {
 	if err := json.NewDecoder(rr.Body).Decode(&got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Name != "sim-bench" || got.Address != "z21-sim-sim-bench.elp.svc.cluster.local:21105" {
+	if got.Name != "sim-bench" || got.Address != "z21-sim-sim-bench.elp.svc.cluster.local.:21105" {
 		t.Fatalf("device = %#v", got)
 	}
 }

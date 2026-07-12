@@ -96,7 +96,7 @@ func newDeviceCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&backendType, "backend", "hardware", "Backend type: hardware or simulator")
 	cmd.Flags().StringVar(&address, "address", "", "Z21 UDP endpoint host:port (required for hardware backend)")
 	cmd.Flags().StringVar(&simulatorImage, "simulator-image", "", "Simulator container image (simulator backend only)")
-	cmd.Flags().StringVar(&natsURL, "nats-url", "nats://nats.default.svc.cluster.local:4222", "NATS URL for gateway events and control")
+	cmd.Flags().StringVar(&natsURL, "nats-url", "nats://nats.default.svc.cluster.local.:4222", "NATS URL for gateway events and control")
 	cmd.Flags().StringVar(&subjectPrefix, "nats-subject-prefix", "", "NATS subject prefix override")
 	cmd.Flags().BoolVar(&hostNetwork, "host-network", false, "Run gateway with hostNetwork")
 	cmd.Flags().StringVar(&gatewayImage, "gateway-image", "", "Gateway container image")

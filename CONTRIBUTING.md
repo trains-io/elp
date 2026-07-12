@@ -62,7 +62,7 @@ make dev-infra-down       # delete kind cluster
 **`make dev-infra-up`** creates a kind cluster named `elp` (override with
 `KIND_CLUSTER_NAME`) and installs NATS in the `default` namespace.
 
-- NATS URL: `nats://nats.default.svc.cluster.local:4222`
+- NATS URL: `nats://nats.default.svc.cluster.local.:4222` (trailing dot avoids host DNS search leaks)
 - The kind node is labelled `trains.io/edge=true` (matches sample `nodeSelector`)
 - `host.docker.internal` is mapped for hostNetwork gateways reaching a Z21 on the Docker host
 
@@ -96,7 +96,7 @@ Environment variables:
 | `NATS_URL` | _(empty)_ | Override NATS URL for control commands |
 
 When the API runs on your host against a kind cluster, device specs still contain
-in-cluster NATS URLs (`nats://nats.default.svc.cluster.local:4222`). Set
+in-cluster NATS URLs (`nats://nats.default.svc.cluster.local.:4222`). Set
 `NATS_URL=nats://127.0.0.1:4222` and port-forward NATS so broadcast-flag patches
 reach gateways:
 
@@ -154,7 +154,7 @@ If the IP is not shown, check `kubectl get svc elp-api -n elp`. As a fallback yo
 still use `make api-port-forward` for `http://localhost:8080`.
 
 Requires NATS (`make nats-install` or `make dev-infra-up`). The Deployment sets
-`NATS_URL=nats://nats.default.svc.cluster.local:4222` for control commands.
+`NATS_URL=nats://nats.default.svc.cluster.local.:4222` for control commands.
 
 Remove with `make api-uninstall`.
 
@@ -413,6 +413,17 @@ make gateway-image kind-load-gateway
 ```
 
 Then recreate the device or restart the gateway Deployment in `elp`.
+
+### Gateway cannot connect to NATS (`192.168.x.x:4222` timeout)
+
+On WSL/Docker Desktop, host DNS search domains can leak into pod `resolv.conf`.
+Names like `nats.default.svc.cluster.local` may then resolve to a LAN address
+instead of the cluster Service.
+
+Use a trailing dot on `*.cluster.local` hostnames so the lookup is absolute
+(for example `nats://nats.default.svc.cluster.local.:4222`). Defaults and the
+operator normalize gateway `NATS_URL` this way; recreate the device or restart
+the gateway Deployment after upgrading if an older URL is still set.
 
 ### Gateway cannot resolve NATS or `host.docker.internal`
 

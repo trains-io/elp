@@ -636,7 +636,7 @@ func desiredGatewayDeployment(device *z21v1alpha1.Z21Device, image, saName, z21A
 				ImagePullPolicy: corev1.PullIfNotPresent,
 				Env: []corev1.EnvVar{
 					{Name: "Z21_ADDRESS", Value: z21Address},
-					{Name: "NATS_URL", Value: device.Spec.NATS.URL},
+					{Name: "NATS_URL", Value: z21v1alpha1.EnsureNATSURLClusterDNS(device.Spec.NATS.URL)},
 					{Name: "NATS_SUBJECT_PREFIX", Value: device.SubjectPrefix()},
 					{Name: "Z21_DEVICE_NAME", Value: device.Name},
 					{Name: "Z21_DEVICE_NAMESPACE", Value: device.Namespace},

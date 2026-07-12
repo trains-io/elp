@@ -3,6 +3,8 @@ package v1alpha1
 import (
 	"fmt"
 	"net"
+	"net/url"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -283,6 +285,11 @@ const DefaultSimulatorImage = "ghcr.io/trains-io/z21-sim:latest"
 // DefaultWorkloadNamespace is where gateway and simulator workloads are reconciled.
 const DefaultWorkloadNamespace = "elp"
 
+// DefaultNATSURL is the in-cluster NATS URL for gateways and the API.
+// The trailing dot on the hostname avoids bogus lookups when host DNS search
+// domains leak into pod resolv.conf (common on WSL/Docker Desktop).
+const DefaultNATSURL = "nats://nats.default.svc.cluster.local.:4222"
+
 // BroadcastFlagsValue returns the effective broadcast flags for this device.
 func (d *Z21Device) BroadcastFlagsValue() uint32 {
 	if d.Spec.BroadcastFlags != nil {
@@ -335,7 +342,36 @@ func SimulatorServiceName(deviceName string) string {
 
 // SimulatorServiceFQDN returns the cluster DNS name for the simulator Service.
 func SimulatorServiceFQDN(namespace, deviceName string) string {
-	return fmt.Sprintf("%s.%s.svc.cluster.local", SimulatorServiceName(deviceName), namespace)
+	return fmt.Sprintf("%s.%s.svc.cluster.local.", SimulatorServiceName(deviceName), namespace)
+}
+
+// EnsureClusterDNSFQDN appends a trailing dot to *.cluster.local hostnames so
+// resolver search paths cannot rewrite in-cluster service names.
+func EnsureClusterDNSFQDN(host string) string {
+	host = strings.TrimSuffix(host, ".")
+	if strings.HasSuffix(host, ".cluster.local") {
+		return host + "."
+	}
+	return host
+}
+
+// EnsureNATSURLClusterDNS normalizes in-cluster NATS URLs for reliable DNS.
+func EnsureNATSURLClusterDNS(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Hostname() == "" {
+		return raw
+	}
+	host := EnsureClusterDNSFQDN(u.Hostname())
+	if host == u.Hostname() {
+		return raw
+	}
+	port := u.Port()
+	if port == "" {
+		u.Host = host
+	} else {
+		u.Host = net.JoinHostPort(host, port)
+	}
+	return u.String()
 }
 
 // SimulatorImage returns the configured simulator image.

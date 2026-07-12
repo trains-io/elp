@@ -19,7 +19,7 @@ func TestCreateDeviceThroughServerRouting(t *testing.T) {
 	name := "routing-test"
 	body := `{
 		"backend": { "type": "simulator" },
-		"nats": { "url": "nats://nats.default.svc.cluster.local:4222" }
+		"nats": { "url": "nats://nats.default.svc.cluster.local.:4222" }
 	}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/namespaces/default/devices/"+name, bytes.NewBufferString(body))
 	rr := httptest.NewRecorder()
