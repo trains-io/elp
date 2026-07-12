@@ -158,7 +158,7 @@ api-install: ## Install API Deployment, Service, and RBAC into the cluster
 	@echo "In-cluster URL: http://elp-api.default.svc.cluster.local:8080"
 	@IP=$$(bash tools/kind/wait-loadbalancer.sh elp-api default 120); \
 	echo "External URL: http://$$IP:8080"; \
-	echo "elpctl: ELP_SERVER=http://$$IP:8080 ./bin/elpctl device list"
+	echo "elpctl: elpctl config init && elpctl device list"
 
 api-uninstall: ## Remove in-cluster API Deployment, Service, and RBAC
 	kubectl delete -k $(API_KUSTOMIZE) --ignore-not-found

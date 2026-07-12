@@ -126,13 +126,26 @@ make operator-dev-install  # Z21Device CRD + controller
 make api-dev-install       # build elp-api:local, load into kind, apply deploy/api
 ```
 
-`make api-install` prints the external URL when MetalLB assigns an IP. Use it
-with elpctl:
+`make api-install` prints the external URL when MetalLB assigns an IP. Generate
+elpconfig from the cluster (uses kubectl + the active context):
 
 ```bash
-export ELP_SERVER=http://<EXTERNAL-IP>:8080
-curl "$ELP_SERVER/healthz"
-curl "$ELP_SERVER/api/v1/namespaces/default/devices"
+elpctl config init
+elpctl device list
+```
+
+Or preview without writing:
+
+```bash
+elpctl config init --dry-run
+elpctl config view
+```
+
+`elpctl` reads `~/.elp/config` by default (override with `ELPCONFIG` or
+`--elpconfig`). `--server` and `ELP_SERVER` still override the config file.
+
+```bash
+curl http://<EXTERNAL-IP>:8080/healthz
 ./bin/elpctl device list
 ```
 
@@ -197,8 +210,9 @@ Remove with `make api-uninstall`.
 ```bash
 make build-elpctl
 
-# against a running API (make run-api or make api-port-forward)
-export ELP_SERVER=http://localhost:8080
+# against a running API (make run-api, LoadBalancer, or port-forward)
+elpctl config init          # writes ~/.elp/config from kubectl + elp-api Service
+elpctl device list
 
 elpctl device create basement \
   --address 192.168.0.42:21105 \
@@ -219,8 +233,31 @@ Environment variables:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `ELP_SERVER` | `http://localhost:8080` | API base URL (`--server`) |
-| `ELP_NAMESPACE` | `default` | Target namespace (`--namespace`) |
+| `ELPCONFIG` | `~/.elp/config` | elpconfig file path (`--elpconfig`) |
+| `ELP_SERVER` | from elpconfig, else `http://localhost:8080` | API base URL (`--server`) |
+| `ELP_NAMESPACE` | from elpconfig, else `default` | Target namespace (`--namespace`) |
+
+### elpconfig
+
+kubeconfig-style file for API server address and namespace:
+
+```yaml
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: http://172.18.255.200:8080
+  name: kind-elp
+contexts:
+- context:
+    cluster: kind-elp
+    namespace: default
+  name: kind-elp@default
+current-context: kind-elp@default
+```
+
+`elpctl config init` discovers the `elp-api` LoadBalancer address via kubectl
+and writes this file. Cluster/context names follow the active kubectl context.
 
 Use `-o json` for machine-readable output.
 
