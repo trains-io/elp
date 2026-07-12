@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/trains-io/elp/apps/elpctl/internal/client"
@@ -156,6 +155,7 @@ func newDeviceWatchCmd() *cobra.Command {
 
 			c := newAPIClient()
 			ctx := cmd.Context()
+			watchOut := newDeviceWatchWriter(os.Stdout)
 			return c.WatchDevices(ctx, func(event client.StreamEvent) error {
 				switch event.Type {
 				case "snapshot":
@@ -163,12 +163,18 @@ func newDeviceWatchCmd() *cobra.Command {
 					if filter != "" {
 						items = filterDevices(items, filter)
 					}
-					return printDeviceList(items, outputFmt)
+					if outputFmt == "json" {
+						return json.NewEncoder(os.Stdout).Encode(client.DeviceList{Items: items})
+					}
+					return watchOut.writeSnapshot(items)
 				case "updated":
 					if filter != "" && event.Device.Name != filter {
 						return nil
 					}
-					return printDevice(event.Device, outputFmt)
+					if outputFmt == "json" {
+						return json.NewEncoder(os.Stdout).Encode(event.Device)
+					}
+					return watchOut.writeUpdated(event.Device)
 				case "deleted":
 					if filter != "" && event.Name != filter {
 						return nil
@@ -179,8 +185,7 @@ func newDeviceWatchCmd() *cobra.Command {
 							"name": event.Name,
 						})
 					}
-					fmt.Printf("deleted\t%s\n", event.Name)
-					return nil
+					return watchOut.writeDeleted(event.Name)
 				default:
 					if outputFmt == "json" {
 						return json.NewEncoder(os.Stdout).Encode(event)
@@ -237,14 +242,12 @@ func printDevice(device client.Device, format string) error {
 }
 
 func printDeviceTable(items []client.Device) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tNAMESPACE\tADDRESS\tPHASE\tGATEWAY\tREACHABLE\tDEGRADED")
-	for _, d := range items {
-		phase, gateway, reachable, degraded := statusColumns(d.Status)
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			d.Name, d.Namespace, d.Address, phase, gateway, reachable, degraded)
+	table, err := formatDeviceTable(items)
+	if err != nil {
+		return err
 	}
-	return w.Flush()
+	_, err = fmt.Fprint(os.Stdout, table)
+	return err
 }
 
 func statusColumns(status *client.DeviceStatus) (phase, gateway, reachable, degraded string) {
