@@ -75,6 +75,7 @@ type Z21DeviceSpec struct {
 	BroadcastFlags *uint32 `json:"broadcastFlags,omitempty"`
 
 	// CANAddressPoolRef names the CANAddressPool used for module address allocation.
+	// When unset, the controller uses the pool named "default" in the elp namespace.
 	// +optional
 	CANAddressPoolRef *corev1.LocalObjectReference `json:"canAddressPoolRef,omitempty"`
 }
@@ -290,6 +291,30 @@ const DefaultWorkloadNamespace = "elp"
 // domains leak into pod resolv.conf (common on WSL/Docker Desktop).
 const DefaultNATSURL = "nats://nats.default.svc.cluster.local.:4222"
 
+// DefaultCANAddressPoolName is used when spec.canAddressPoolRef is unset.
+const DefaultCANAddressPoolName = "default"
+
+// DefaultCANAddressPoolNamespace is where the bundled default pool is installed.
+const DefaultCANAddressPoolNamespace = DefaultWorkloadNamespace
+
+// DefaultCANAddressPoolStart is the first auto-allocatable address in the default pool.
+const DefaultCANAddressPoolStart uint16 = 10
+
+// DefaultCANAddressPoolEnd is the last auto-allocatable address in the default pool.
+const DefaultCANAddressPoolEnd uint16 = 200
+
+// DefaultCANAddressPoolReserved are never auto-allocated in the default pool.
+var DefaultCANAddressPoolReserved = []uint16{1, 2, 3}
+
+// DefaultCANAddressPoolSpec returns the bundled default pool configuration.
+func DefaultCANAddressPoolSpec() CANAddressPoolSpec {
+	return CANAddressPoolSpec{
+		Start:    DefaultCANAddressPoolStart,
+		End:      DefaultCANAddressPoolEnd,
+		Reserved: append([]uint16(nil), DefaultCANAddressPoolReserved...),
+	}
+}
+
 // BroadcastFlagsValue returns the effective broadcast flags for this device.
 func (d *Z21Device) BroadcastFlagsValue() uint32 {
 	if d.Spec.BroadcastFlags != nil {
@@ -380,6 +405,22 @@ func (d *Z21Device) SimulatorImage() string {
 		return d.Spec.Backend.Simulator.Image
 	}
 	return DefaultSimulatorImage
+}
+
+// CANAddressPoolName returns the effective CANAddressPool name for this device.
+func (d *Z21Device) CANAddressPoolName() string {
+	if d.Spec.CANAddressPoolRef != nil && d.Spec.CANAddressPoolRef.Name != "" {
+		return d.Spec.CANAddressPoolRef.Name
+	}
+	return DefaultCANAddressPoolName
+}
+
+// CANAddressPoolNamespace returns the namespace of the effective CANAddressPool.
+func (d *Z21Device) CANAddressPoolNamespace() string {
+	if d.Spec.CANAddressPoolRef != nil && d.Spec.CANAddressPoolRef.Name != "" {
+		return d.Namespace
+	}
+	return DefaultCANAddressPoolNamespace
 }
 
 // DisplayName returns the human-facing device name from annotations.

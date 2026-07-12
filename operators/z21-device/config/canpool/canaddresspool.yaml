@@ -1,0 +1,11 @@
+apiVersion: z21.trains.io/v1alpha1
+kind: CANAddressPool
+metadata:
+  name: default
+spec:
+  start: 10
+  end: 200
+  reserved:
+    - 1
+    - 2
+    - 3

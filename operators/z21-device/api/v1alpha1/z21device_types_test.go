@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -19,6 +20,39 @@ func TestBroadcastFlagsValueUsesDefault(t *testing.T) {
 	device := &Z21Device{}
 	if device.BroadcastFlagsValue() != DefaultBroadcastFlags {
 		t.Fatalf("BroadcastFlagsValue() = %#x", device.BroadcastFlagsValue())
+	}
+}
+
+func TestCANAddressPoolNameUsesDefault(t *testing.T) {
+	device := &Z21Device{ObjectMeta: metav1.ObjectMeta{Namespace: "default"}}
+	if device.CANAddressPoolName() != DefaultCANAddressPoolName {
+		t.Fatalf("CANAddressPoolName() = %q", device.CANAddressPoolName())
+	}
+	if device.CANAddressPoolNamespace() != DefaultCANAddressPoolNamespace {
+		t.Fatalf("CANAddressPoolNamespace() = %q", device.CANAddressPoolNamespace())
+	}
+
+	custom := &Z21Device{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+		Spec: Z21DeviceSpec{
+			CANAddressPoolRef: &corev1.LocalObjectReference{Name: "layout-a"},
+		},
+	}
+	if custom.CANAddressPoolName() != "layout-a" {
+		t.Fatalf("CANAddressPoolName() = %q", custom.CANAddressPoolName())
+	}
+	if custom.CANAddressPoolNamespace() != "default" {
+		t.Fatalf("CANAddressPoolNamespace() = %q", custom.CANAddressPoolNamespace())
+	}
+}
+
+func TestDefaultCANAddressPoolSpec(t *testing.T) {
+	spec := DefaultCANAddressPoolSpec()
+	if spec.Start != DefaultCANAddressPoolStart || spec.End != DefaultCANAddressPoolEnd {
+		t.Fatalf("spec range = %d-%d", spec.Start, spec.End)
+	}
+	if len(spec.Reserved) != len(DefaultCANAddressPoolReserved) {
+		t.Fatalf("reserved = %v", spec.Reserved)
 	}
 }
 

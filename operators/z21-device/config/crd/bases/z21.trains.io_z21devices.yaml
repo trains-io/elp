@@ -104,8 +104,9 @@ spec:
                 format: int32
                 type: integer
               canAddressPoolRef:
-                description: CANAddressPoolRef names the CANAddressPool used for module
-                  address allocation.
+                description: |-
+                  CANAddressPoolRef names the CANAddressPool used for module address allocation.
+                  When unset, the controller uses the pool named "default" in the elp namespace.
                 properties:
                   name:
                     default: ""

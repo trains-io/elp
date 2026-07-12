@@ -54,20 +54,17 @@ func (r *CANDetectorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	poolRef := device.Spec.CANAddressPoolRef
-	if poolRef == nil || poolRef.Name == "" {
-		return r.patchFailed(ctx, &detector, fmt.Sprintf("Z21Device %q has no spec.canAddressPoolRef", deviceName))
-	}
-
+	poolNS := device.CANAddressPoolNamespace()
+	poolName := device.CANAddressPoolName()
 	var poolCR z21v1alpha1.CANAddressPool
-	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: poolRef.Name}, &poolCR); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Namespace: poolNS, Name: poolName}, &poolCR); err != nil {
 		if apierrors.IsNotFound(err) {
-			return r.patchFailed(ctx, &detector, fmt.Sprintf("CANAddressPool %q not found", poolRef.Name))
+			return r.patchFailed(ctx, &detector, fmt.Sprintf("CANAddressPool %q not found in namespace %q", poolName, poolNS))
 		}
 		return ctrl.Result{}, err
 	}
 
-	detectors, err := r.listDeviceDetectors(ctx, req.Namespace, deviceName)
+	detectors, err := r.listPoolDetectors(ctx, poolNS, poolName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -106,7 +103,7 @@ func (r *CANDetectorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if result.Phase == z21v1alpha1.CANDetectorPhaseAllocated {
 		if err := r.updatePoolStatus(ctx, &poolCR, result.Stats); err != nil {
-			logger.Error(err, "failed to update CANAddressPool status", "pool", poolRef.Name)
+			logger.Error(err, "failed to update CANAddressPool status", "pool", poolName)
 		}
 	}
 
@@ -141,6 +138,31 @@ func (r *CANDetectorReconciler) listDeviceDetectors(ctx context.Context, namespa
 	out := make([]z21v1alpha1.CANDetector, 0)
 	for _, det := range list.Items {
 		if det.Spec.DeviceRef.Name == deviceName {
+			out = append(out, det)
+		}
+	}
+	return out, nil
+}
+
+func (r *CANDetectorReconciler) listPoolDetectors(ctx context.Context, poolNamespace, poolName string) ([]z21v1alpha1.CANDetector, error) {
+	var list z21v1alpha1.CANDetectorList
+	if err := r.List(ctx, &list); err != nil {
+		return nil, err
+	}
+
+	out := make([]z21v1alpha1.CANDetector, 0, len(list.Items))
+	for _, det := range list.Items {
+		if det.Spec.DeviceRef.Name == "" {
+			continue
+		}
+		var device z21v1alpha1.Z21Device
+		if err := r.Get(ctx, types.NamespacedName{Namespace: det.Namespace, Name: det.Spec.DeviceRef.Name}, &device); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return nil, err
+		}
+		if device.CANAddressPoolNamespace() == poolNamespace && device.CANAddressPoolName() == poolName {
 			out = append(out, det)
 		}
 	}
@@ -186,14 +208,13 @@ func (r *CANDetectorReconciler) mapPoolToDetectors(ctx context.Context, obj clie
 	}
 
 	var devices z21v1alpha1.Z21DeviceList
-	if err := r.List(ctx, &devices, client.InNamespace(pool.Namespace)); err != nil {
+	if err := r.List(ctx, &devices); err != nil {
 		return nil
 	}
 
 	var requests []reconcile.Request
 	for _, device := range devices.Items {
-		ref := device.Spec.CANAddressPoolRef
-		if ref == nil || ref.Name != pool.Name {
+		if device.CANAddressPoolNamespace() != pool.Namespace || device.CANAddressPoolName() != pool.Name {
 			continue
 		}
 		requests = append(requests, r.enqueueDetectorsForDevice(ctx, device.Namespace, device.Name)...)
