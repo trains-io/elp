@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,7 +13,7 @@ import (
 
 func TestCreateDevice(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/namespaces/default/devices" {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/namespaces/default/devices/basement" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		var req DeviceCreate
@@ -99,6 +100,39 @@ func TestWatchDevicesSSE(t *testing.T) {
 	}
 	if len(events) != 2 || events[0].Type != "snapshot" || events[1].Device.Status.Phase != "Running" {
 		t.Fatalf("events = %#v", events)
+	}
+}
+
+func TestCreateDeviceSimulator(t *testing.T) {
+	var captured []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/namespaces/default/devices/dev-01" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		captured, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(Device{
+			Name:      "dev-01",
+			Namespace: "default",
+			Address:   "z21-sim-dev-01.default.svc.cluster.local:21105",
+			NATS:      NatsConfig{URL: "nats://nats:4222"},
+		})
+	}))
+	defer srv.Close()
+
+	_, err := New(srv.URL, "default").CreateDevice(context.Background(), DeviceCreate{
+		Name: "dev-01",
+		Backend: &BackendCreate{
+			Type:      "simulator",
+			Simulator: &SimulatorCreate{},
+		},
+		NATS: NatsConfig{URL: "nats://nats:4222"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(captured), `"name":"dev-01"`) {
+		t.Fatalf("payload = %s", captured)
 	}
 }
 

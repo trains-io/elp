@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -135,6 +136,60 @@ func TestCreateDeviceSimulatorHTTP(t *testing.T) {
 	}
 	if got.Name != "sim-bench" || got.Address != "z21-sim-sim-bench.default.svc.cluster.local:21105" {
 		t.Fatalf("device = %#v", got)
+	}
+}
+
+func TestCreateDeviceSimulatorByURLHTTP(t *testing.T) {
+	cl := newFakeDeviceClient(t)
+	h := &DeviceHandler{
+		Client:  cl,
+		Control: noopControl{},
+	}
+
+	body := `{
+		"backend": { "type": "simulator" },
+		"nats": { "url": "nats://nats.default.svc:4222" }
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/sim-bench", bytes.NewBufferString(body))
+	req = req.WithContext(context.Background())
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("namespace", "default")
+	rctx.URLParams.Add("name", "sim-bench")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	rr := httptest.NewRecorder()
+	h.createDevice(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+
+	stored := &z21v1alpha1.Z21Device{}
+	if err := cl.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: "sim-bench"}, stored); err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if stored.Spec.Backend.Type != z21v1alpha1.BackendSimulator {
+		t.Fatalf("backend = %#v", stored.Spec.Backend)
+	}
+}
+
+func TestCreateDeviceSimulatorPayloadIncludesName(t *testing.T) {
+	data, err := json.Marshal(DeviceCreate{
+		Name: "dev-01",
+		Backend: &BackendCreate{
+			Type: "simulator",
+		},
+		NATS: NatsConfig{URL: "nats://nats:4222"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var req DeviceCreate
+	if err := json.Unmarshal(data, &req); err != nil {
+		t.Fatal(err)
+	}
+	if req.Name != "dev-01" {
+		t.Fatalf("name = %q", req.Name)
 	}
 }
 

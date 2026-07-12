@@ -31,6 +31,7 @@ func (h *DeviceHandler) Routes() chi.Router {
 	r.Get("/stream", h.streamDevices)
 	r.Get("/", h.listDevices)
 	r.Post("/", h.createDevice)
+	r.Post("/{name}", h.createDevice)
 	r.Get("/{name}", h.getDevice)
 	r.Patch("/{name}", h.patchDevice)
 	r.Delete("/{name}", h.deleteDevice)
@@ -55,10 +56,17 @@ func (h *DeviceHandler) listDevices(w http.ResponseWriter, r *http.Request) {
 
 func (h *DeviceHandler) createDevice(w http.ResponseWriter, r *http.Request) {
 	namespace := chi.URLParam(r, "namespace")
+	urlName := chi.URLParam(r, "name")
 
 	var req DeviceCreate
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if req.Name == "" {
+		req.Name = urlName
+	} else if urlName != "" && req.Name != urlName {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("name in URL and body must match"))
 		return
 	}
 	if err := validateDeviceCreate(req); err != nil {

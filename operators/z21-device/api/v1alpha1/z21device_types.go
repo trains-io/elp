@@ -242,7 +242,7 @@ type Z21DeviceStatus struct {
 // Z21Device represents a physical or virtual Z21 command station managed in-cluster.
 type Z21Device struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   Z21DeviceSpec   `json:"spec,omitempty"`
 	Status Z21DeviceStatus `json:"status,omitempty"`

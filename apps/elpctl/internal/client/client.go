@@ -28,8 +28,11 @@ func New(baseURL, namespace string) *Client {
 }
 
 func (c *Client) CreateDevice(ctx context.Context, req DeviceCreate) (Device, error) {
+	if req.Name == "" {
+		return Device{}, fmt.Errorf("name is required")
+	}
 	var out Device
-	err := c.doJSON(ctx, http.MethodPost, c.devicesPath(), req, http.StatusCreated, &out)
+	err := c.doJSON(ctx, http.MethodPost, c.devicePath(req.Name), req, http.StatusCreated, &out)
 	return out, err
 }
 
