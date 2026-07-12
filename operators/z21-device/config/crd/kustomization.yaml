@@ -1,2 +1,4 @@
 resources:
   - bases/z21.trains.io_z21devices.yaml
+  - bases/z21.trains.io_canaddresspools.yaml
+  - bases/z21.trains.io_candetectors.yaml

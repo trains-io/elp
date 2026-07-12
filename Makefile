@@ -4,6 +4,7 @@
 	operator-image kind-load-operator operator-install-crd operator-install operator-uninstall operator-dev-install \
 	kind-up kind-down kind-configure-host metallb-install metallb-uninstall nats-install nats-uninstall dev-infra-up dev-infra-down \
 	test-api build-api run-api api-image kind-load-api api-install api-uninstall api-dev-install api-port-forward \
+	test-gateway build-gateway gateway-image kind-load-gateway \
 	test-elpctl build-elpctl
 
 KIND_CLUSTER_NAME ?= elp
@@ -22,6 +23,9 @@ API_IMAGE = elp-api:local
 API_NAMESPACE = elp
 ELPCTL_DIR = apps/elpctl
 ELPCTL_BIN = bin/elpctl
+GATEWAY_DIR = apps/z21-gateway
+GATEWAY_BIN = bin/z21-gateway
+GATEWAY_IMAGE = z21-gateway:local
 # Pin stable k8s; override to match your kind release notes if needed.
 KIND_NODE_IMAGE ?= kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 METALLB_VERSION ?= v0.14.9
@@ -170,6 +174,28 @@ api-dev-install: api-image kind-load-api api-install ## Build, load, and install
 
 api-port-forward: ## Fallback: forward in-cluster API to localhost:8080
 	kubectl port-forward -n $(API_NAMESPACE) svc/elp-api 8080:8080
+
+##@ Gateway
+
+test-gateway: ## Run z21-gateway unit tests
+	cd $(GATEWAY_DIR) && go test ./... -count=1
+
+build-gateway: ## Build bin/z21-gateway
+	mkdir -p bin
+	cd $(GATEWAY_DIR) && go build -o ../../$(GATEWAY_BIN) .
+
+gateway-image: ## Build z21-gateway:local container image for kind
+	@if [ ! -d ../z21.go ]; then \
+		echo "z21.go not found at ../z21.go (clone github.com/trains-io/z21.go next to elp)"; exit 1; \
+	fi
+	DOCKER_BUILDKIT=1 docker build -t $(GATEWAY_IMAGE) -f $(GATEWAY_DIR)/Dockerfile \
+		--build-context z21go=../z21.go .
+
+kind-load-gateway: ## Load z21-gateway:local into the kind cluster
+	@if ! kind get clusters 2>/dev/null | grep -qx '$(KIND_CLUSTER_NAME)'; then \
+		echo "kind cluster '$(KIND_CLUSTER_NAME)' not found; run make kind-up first"; exit 1; \
+	fi
+	kind load docker-image $(GATEWAY_IMAGE) --name $(KIND_CLUSTER_NAME)
 
 ##@ elpctl
 

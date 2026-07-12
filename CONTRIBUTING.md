@@ -201,6 +201,20 @@ Remove with `make api-uninstall`.
 | `make api-uninstall` | Remove the in-cluster API |
 | `make api-dev-install` | Image build + kind load + install |
 | `make api-port-forward` | Fallback: forward `svc/elp-api` to `localhost:8080` |
+
+### Gateway
+
+| Target | Description |
+|--------|-------------|
+| `make test-gateway` | Unit tests for `apps/z21-gateway` |
+| `make build-gateway` | Build `bin/z21-gateway` |
+| `make gateway-image` | Build `z21-gateway:local` container image |
+| `make kind-load-gateway` | Load `z21-gateway:local` into kind |
+
+### elpctl
+
+| Target | Description |
+|--------|-------------|
 | `make test-elpctl` | Unit tests for `apps/elpctl` |
 | `make build-elpctl` | Build `bin/elpctl` |
 
@@ -345,9 +359,15 @@ Gateway and simulator pods are reconciled in the `elp` namespace (see controller
 `--workload-namespace`). Per-device RoleBindings remain in the `Z21Device`
 namespace so the gateway can patch device status.
 
-Gateway pods are not functional until a `z21-gateway` image is built and loaded into
-kind (the kustomize overlay rewrites `ghcr.io/trains-io/z21-gateway` to
-`z21-gateway:local`). That image build will be added to elp in a later phase.
+Build and load the gateway image before creating devices:
+
+```bash
+make gateway-image kind-load-gateway
+```
+
+The operator kustomize overlay rewrites `ghcr.io/trains-io/z21-gateway` to
+`z21-gateway:local`. Requires the `z21.go` library as a sibling checkout at
+`../z21.go` (see `apps/z21-gateway/go.mod` replace directive).
 
 ## Troubleshooting
 
@@ -383,6 +403,16 @@ kubectl rollout restart deployment/z21-device-controller -n elp
 ```
 
 Or use the all-in-one target: `make operator-dev-install`.
+
+### Gateway pod `ImagePullBackOff`
+
+On kind, the gateway image must be built and loaded locally:
+
+```bash
+make gateway-image kind-load-gateway
+```
+
+Then recreate the device or restart the gateway Deployment in `elp`.
 
 ### Gateway cannot resolve NATS or `host.docker.internal`
 

@@ -1,0 +1,122 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: candetectors.z21.trains.io
+spec:
+  group: z21.trains.io
+  names:
+    kind: CANDetector
+    listKind: CANDetectorList
+    plural: candetectors
+    shortNames:
+    - candet
+    singular: candetector
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
+    - jsonPath: .spec.netID
+      name: NetID
+      type: string
+    - jsonPath: .spec.desiredAddress
+      name: Desired
+      type: integer
+    - jsonPath: .status.observedAddress
+      name: Observed
+      type: integer
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CANDetector represents one CAN occupancy detector module on a
+          Z21 command station.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CANDetectorSpec defines a CAN occupancy detector discovered
+              on a Z21 command station.
+            properties:
+              adoptObserved:
+                default: true
+                description: |-
+                  AdoptObserved requests keeping the hardware module address when it already
+                  lies in the configured pool and is unassigned.
+                type: boolean
+              desiredAddress:
+                description: |-
+                  DesiredAddress is the module address the allocator selected (1-255).
+                  Written by the CANDetector controller; do not set manually unless adopting.
+                type: integer
+              deviceRef:
+                description: DeviceRef names the Z21Device that owns this detector
+                  (same namespace).
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              netID:
+                description: NetID is the permanent CAN network identifier (for example
+                  0xDB04).
+                minimum: 1
+                type: integer
+            required:
+            - deviceRef
+            - netID
+            type: object
+          status:
+            description: CANDetectorStatus defines observed detector state.
+            properties:
+              assignedAddress:
+                description: AssignedAddress is the address reserved by the pool allocator
+                  for this detector.
+                type: integer
+              message:
+                description: Message explains Pending or Failed state.
+                type: string
+              observedAddress:
+                description: ObservedAddress is the module address last read from
+                  the Z21 (LAN_CAN_DETECTOR).
+                type: integer
+              phase:
+                description: Phase is the allocation lifecycle state.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
