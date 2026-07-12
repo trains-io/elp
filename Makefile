@@ -10,6 +10,8 @@ KIND_CLUSTER_NAME ?= elp
 KIND_CONFIG = tools/kind/kind-config.yaml
 KIND_NODE = $(KIND_CLUSTER_NAME)-control-plane
 OPERATOR_DIR = operators/z21-device
+OPERATOR_NAMESPACE = elp
+OPERATOR_DEPLOYMENT = z21-device-controller
 OPERATOR_CRD_KUSTOMIZE = $(OPERATOR_DIR)/config/crd
 OPERATOR_KUSTOMIZE = $(OPERATOR_DIR)/config/default
 OPERATOR_IMAGE = z21-device-controller:local
@@ -65,7 +67,7 @@ operator-install-crd: ## Install Z21Device CRDs only
 
 operator-install: ## Install CRDs, RBAC, and controller manager
 	kubectl apply -k $(OPERATOR_KUSTOMIZE)
-	kubectl rollout status deployment/controller-manager -n system --timeout=120s
+	kubectl rollout status deployment/$(OPERATOR_DEPLOYMENT) -n $(OPERATOR_NAMESPACE) --timeout=120s
 
 operator-uninstall: ## Remove controller manager, RBAC, and CRDs
 	kubectl delete -k $(OPERATOR_KUSTOMIZE) --ignore-not-found

@@ -37,7 +37,7 @@ kubectl apply -f operators/z21-device/config/samples/z21_v1alpha1_z21device.yaml
 
 # 4. Observe
 kubectl get z21devices
-kubectl get pods -n system
+kubectl get pods -n elp
 kubectl get deploy -A | grep z21
 
 # 5. API (optional — HTTP bridge to Z21Device CRs)
@@ -67,7 +67,8 @@ make dev-infra-down       # delete kind cluster
 - `host.docker.internal` is mapped for hostNetwork gateways reaching a Z21 on the Docker host
 
 **`make operator-dev-install`** builds `z21-device-controller:local`, loads it into
-kind, and applies `operators/z21-device/config/default` (CRD, RBAC, manager Deployment).
+kind, and applies `operators/z21-device/config/default` (CRD, RBAC, manager
+Deployment in the `elp` namespace).
 
 **Sample `Z21Device`** — edit `spec.backend.hardware.host` for your LAN command station,
 or use a simulator backend once gateway images are available locally.
@@ -373,7 +374,7 @@ On kind, the manager image must be loaded locally:
 
 ```bash
 make operator-image kind-load-operator
-kubectl rollout restart deployment/controller-manager -n system
+kubectl rollout restart deployment/z21-device-controller -n elp
 ```
 
 Or use the all-in-one target: `make operator-dev-install`.

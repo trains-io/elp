@@ -1,4 +1,4 @@
-namespace: system
+namespace: elp
 resources:
   - ../crd
   - ../rbac

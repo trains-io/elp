@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: system
+  name: elp
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
-  namespace: system
+  name: z21-device-controller
+  namespace: elp
   labels:
     app.kubernetes.io/name: z21-device-controller
 spec:
@@ -20,9 +20,9 @@ spec:
       labels:
         app.kubernetes.io/name: z21-device-controller
     spec:
-      serviceAccountName: controller-manager
+      serviceAccountName: z21-device-controller
       containers:
-        - name: manager
+        - name: z21-device-controller
           image: ghcr.io/trains-io/z21-device-controller:latest
           imagePullPolicy: IfNotPresent
           args:
