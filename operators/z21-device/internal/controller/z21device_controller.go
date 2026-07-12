@@ -24,16 +24,18 @@ import (
 )
 
 const (
-	defaultGatewayImage = "ghcr.io/trains-io/z21-gateway:latest"
-	gatewayComponent    = "z21-gateway"
-	simulatorComponent  = "z21-sim"
+	defaultGatewayImage      = "ghcr.io/trains-io/z21-gateway:latest"
+	defaultWorkloadNamespace = "elp"
+	gatewayComponent         = "z21-gateway"
+	simulatorComponent       = "z21-sim"
 )
 
 // Z21DeviceReconciler reconciles a Z21Device object by managing its gateway workload.
 type Z21DeviceReconciler struct {
 	client.Client
-	Scheme       *runtime.Scheme
-	GatewayImage string
+	Scheme            *runtime.Scheme
+	GatewayImage      string
+	WorkloadNamespace string
 }
 
 // +kubebuilder:rbac:groups=z21.trains.io,resources=z21devices,verbs=get;list;watch;create;update;patch;delete
@@ -114,6 +116,11 @@ func (r *Z21DeviceReconciler) reconcileDelete(ctx context.Context, device *z21v1
 	logger := log.FromContext(ctx)
 
 	if _, err := r.updateStatus(ctx, device, statusInput{phase: z21v1alpha1.PhaseStopping}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.deleteGateway(ctx, device); err != nil {
+		logger.Error(err, "failed to delete gateway resources")
 		return ctrl.Result{}, err
 	}
 
@@ -260,15 +267,13 @@ func (r *Z21DeviceReconciler) deleteSimulator(ctx context.Context, device *z21v1
 func (r *Z21DeviceReconciler) reconcileGatewayServiceAccount(ctx context.Context, device *z21v1alpha1.Z21Device) (string, error) {
 	name := gatewayServiceAccountName(device)
 	labels := gatewayLabels(device)
+	ns := r.gatewayNamespace()
 
 	sa := &corev1.ServiceAccount{}
 	sa.Name = name
-	sa.Namespace = device.Namespace
+	sa.Namespace = ns
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, sa, func() error {
-		if err := controllerutil.SetControllerReference(device, sa, r.Scheme); err != nil {
-			return err
-		}
 		sa.Labels = labels
 		return nil
 	})
@@ -324,7 +329,7 @@ func (r *Z21DeviceReconciler) reconcileGatewayRBAC(ctx context.Context, device *
 		binding.Subjects = []rbacv1.Subject{{
 			Kind:      rbacv1.ServiceAccountKind,
 			Name:      saName,
-			Namespace: device.Namespace,
+			Namespace: r.gatewayNamespace(),
 		}}
 		return nil
 	}); err != nil {
@@ -345,22 +350,19 @@ func (r *Z21DeviceReconciler) reconcileGatewayDeployment(ctx context.Context, de
 
 	deploy := &appsv1.Deployment{}
 	deploy.Name = name
-	deploy.Namespace = device.Namespace
+	deploy.Namespace = r.gatewayNamespace()
 
 	desired := desiredGatewayDeployment(device, r.gatewayImage(), saName, z21Address)
 	desired.Name = name
-	desired.Namespace = device.Namespace
+	desired.Namespace = r.gatewayNamespace()
 	desired.Labels = labels
 
-	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: device.Namespace}, deploy); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: r.gatewayNamespace()}, deploy); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("get deployment: %w", err)
 		}
 		deploy = desired
 		deploy.Labels = labels
-		if err := controllerutil.SetControllerReference(device, deploy, r.Scheme); err != nil {
-			return nil, err
-		}
 		if err := r.Create(ctx, deploy); err != nil {
 			return nil, fmt.Errorf("create deployment: %w", err)
 		}
@@ -373,9 +375,6 @@ func (r *Z21DeviceReconciler) reconcileGatewayDeployment(ctx context.Context, de
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
-		if err := controllerutil.SetControllerReference(device, deploy, r.Scheme); err != nil {
-			return err
-		}
 		deploy.Labels = labels
 		deploy.Spec = desired.Spec
 		return nil
@@ -502,6 +501,34 @@ func deploymentFailed(deploy *appsv1.Deployment) bool {
 		}
 	}
 	return false
+}
+
+func (r *Z21DeviceReconciler) deleteGateway(ctx context.Context, device *z21v1alpha1.Z21Device) error {
+	ns := r.gatewayNamespace()
+	deployName := gatewayDeploymentName(device)
+	saName := gatewayServiceAccountName(device)
+
+	deploy := &appsv1.Deployment{}
+	deploy.Name = deployName
+	deploy.Namespace = ns
+	if err := r.Delete(ctx, deploy); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("delete gateway deployment: %w", err)
+	}
+
+	sa := &corev1.ServiceAccount{}
+	sa.Name = saName
+	sa.Namespace = ns
+	if err := r.Delete(ctx, sa); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("delete gateway service account: %w", err)
+	}
+	return nil
+}
+
+func (r *Z21DeviceReconciler) gatewayNamespace() string {
+	if r.WorkloadNamespace != "" {
+		return r.WorkloadNamespace
+	}
+	return defaultWorkloadNamespace
 }
 
 func (r *Z21DeviceReconciler) gatewayImage() string {

@@ -341,6 +341,10 @@ Useful status fields:
 - `status.conditions[GatewayReady]` — gateway Deployment ready (set by operator)
 - `status.conditions[DeviceReachable]` — Z21 reachable (set by gateway, when deployed)
 
+Gateway pods are reconciled in the `elp` namespace (see controller
+`--workload-namespace`). Per-device RoleBindings remain in the `Z21Device`
+namespace so the gateway can patch device status.
+
 Gateway pods are not functional until a `z21-gateway` image is built and loaded into
 kind (the kustomize overlay rewrites `ghcr.io/trains-io/z21-gateway` to
 `z21-gateway:local`). That image build will be added to elp in a later phase.

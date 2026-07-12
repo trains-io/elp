@@ -30,11 +30,13 @@ func main() {
 	var metricsAddr string
 	var probeAddr string
 	var gatewayImage string
+	var workloadNamespace string
 	var enableLeaderElection bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&gatewayImage, "gateway-image", "", "Default gateway container image.")
+	flag.StringVar(&workloadNamespace, "workload-namespace", "elp", "Namespace for reconciled gateway workloads.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election.")
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
@@ -57,9 +59,10 @@ func main() {
 	}
 
 	if err := (&controller.Z21DeviceReconciler{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		GatewayImage: gatewayImage,
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		GatewayImage:      gatewayImage,
+		WorkloadNamespace: workloadNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Z21Device")
 		os.Exit(1)

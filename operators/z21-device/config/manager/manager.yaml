@@ -29,6 +29,7 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=0
             - --gateway-image=ghcr.io/trains-io/z21-gateway:latest
+            - --workload-namespace=elp
           ports:
             - name: health
               containerPort: 8081

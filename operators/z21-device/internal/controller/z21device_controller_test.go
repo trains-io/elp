@@ -43,7 +43,6 @@ func TestDesiredGatewayDeployment(t *testing.T) {
 
 	dep := desiredGatewayDeployment(device, "gateway:test", "z21-gateway-basement", z21Addr)
 	dep.Name = gatewayDeploymentName(device)
-	dep.Namespace = device.Namespace
 
 	if dep.Name != "z21-gateway-basement" {
 		t.Fatalf("name = %q", dep.Name)
@@ -73,6 +72,9 @@ func TestDesiredGatewayDeployment(t *testing.T) {
 	}
 	if envValue(env, "NATS_SUBJECT_PREFIX") != "z21.trains.basement" {
 		t.Fatalf("NATS_SUBJECT_PREFIX = %q", envValue(env, "NATS_SUBJECT_PREFIX"))
+	}
+	if envValue(env, "Z21_DEVICE_NAMESPACE") != "trains" {
+		t.Fatalf("Z21_DEVICE_NAMESPACE = %q", envValue(env, "Z21_DEVICE_NAMESPACE"))
 	}
 	if envValue(env, "Z21_BROADCAST_FLAGS") != "" {
 		t.Fatalf("Z21_BROADCAST_FLAGS should not be set on the gateway deployment")
