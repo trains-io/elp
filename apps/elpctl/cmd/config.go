@@ -57,6 +57,7 @@ func newConfigInitCmd() *cobra.Command {
 		kubeContext      string
 		serviceName      string
 		serviceNamespace string
+		deviceNamespace  string
 		dryRun           bool
 	)
 
@@ -69,7 +70,7 @@ Uses the active kubectl context for cluster/context names unless --context is se
 Requires kubectl access to the cluster where the API is deployed.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			serverURL, ctxName, ns, err := config.DiscoverFromCluster(config.DiscoverOptions{
+			serverURL, ctxName, err := config.DiscoverFromCluster(config.DiscoverOptions{
 				KubeContext:      kubeContext,
 				ServiceName:      serviceName,
 				ServiceNamespace: serviceNamespace,
@@ -79,7 +80,7 @@ Requires kubectl access to the cluster where the API is deployed.`,
 			}
 
 			clusterName := ctxName
-			contextName := fmt.Sprintf("%s@%s", ctxName, ns)
+			contextName := fmt.Sprintf("%s@%s", ctxName, deviceNamespace)
 
 			cfg := &config.Config{}
 			if !dryRun {
@@ -95,7 +96,7 @@ Requires kubectl access to the cluster where the API is deployed.`,
 					cfg = existing
 				}
 			}
-			cfg.UpsertClusterContext(clusterName, serverURL, contextName, ns)
+			cfg.UpsertClusterContext(clusterName, serverURL, contextName, deviceNamespace)
 
 			if dryRun {
 				data, err := yaml.Marshal(cfg)
@@ -123,7 +124,8 @@ Requires kubectl access to the cluster where the API is deployed.`,
 	cmd.Flags().StringVar(&rawPath, "elpconfig", "", "elpconfig file (default $ELPCONFIG or ~/.elp/config)")
 	cmd.Flags().StringVar(&kubeContext, "context", "", "kubectl context name (default: current-context)")
 	cmd.Flags().StringVar(&serviceName, "service", "elp-api", "API Service name")
-	cmd.Flags().StringVar(&serviceNamespace, "service-namespace", "default", "API Service namespace")
+	cmd.Flags().StringVar(&serviceNamespace, "service-namespace", "elp", "API Service namespace")
+	cmd.Flags().StringVar(&deviceNamespace, "namespace", "default", "Target namespace for Z21Device resources")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print elpconfig to stdout instead of writing a file")
 	return cmd
 }

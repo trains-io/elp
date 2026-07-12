@@ -16,12 +16,12 @@ type DiscoverOptions struct {
 }
 
 // DiscoverFromCluster reads the elp-api Service using kubectl and the active kube context.
-func DiscoverFromCluster(opts DiscoverOptions) (serverURL, kubeContext, namespace string, err error) {
+func DiscoverFromCluster(opts DiscoverOptions) (serverURL, kubeContext string, err error) {
 	if opts.ServiceName == "" {
 		opts.ServiceName = "elp-api"
 	}
 	if opts.ServiceNamespace == "" {
-		opts.ServiceNamespace = "default"
+		opts.ServiceNamespace = "elp"
 	}
 	if opts.KubectlBinary == "" {
 		opts.KubectlBinary = "kubectl"
@@ -31,11 +31,11 @@ func DiscoverFromCluster(opts DiscoverOptions) (serverURL, kubeContext, namespac
 	if kubeContext == "" {
 		kubeContext, err = kubectlOutput(opts.KubectlBinary, "config", "current-context")
 		if err != nil {
-			return "", "", "", fmt.Errorf("kubectl current-context: %w", err)
+			return "", "", fmt.Errorf("kubectl current-context: %w", err)
 		}
 		kubeContext = strings.TrimSpace(kubeContext)
 		if kubeContext == "" {
-			return "", "", "", fmt.Errorf("kubectl has no current context")
+			return "", "", fmt.Errorf("kubectl has no current context")
 		}
 	}
 
@@ -43,12 +43,12 @@ func DiscoverFromCluster(opts DiscoverOptions) (serverURL, kubeContext, namespac
 		"-n", opts.ServiceNamespace,
 		"-o", "json")
 	if err != nil {
-		return "", "", "", fmt.Errorf("get service/%s: %w", opts.ServiceName, err)
+		return "", "", fmt.Errorf("get service/%s: %w", opts.ServiceName, err)
 	}
 
 	var svc serviceJSON
 	if err := json.Unmarshal([]byte(raw), &svc); err != nil {
-		return "", "", "", fmt.Errorf("decode service: %w", err)
+		return "", "", fmt.Errorf("decode service: %w", err)
 	}
 
 	port := 8080
@@ -58,11 +58,11 @@ func DiscoverFromCluster(opts DiscoverOptions) (serverURL, kubeContext, namespac
 
 	host, err := serviceExternalHost(svc)
 	if err != nil {
-		return "", "", "", err
+		return "", "", err
 	}
 
 	serverURL = fmt.Sprintf("http://%s:%d", host, port)
-	return serverURL, kubeContext, opts.ServiceNamespace, nil
+	return serverURL, kubeContext, nil
 }
 
 type serviceJSON struct {

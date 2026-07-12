@@ -19,6 +19,7 @@ API_DIR = apps/api
 API_BIN = bin/elp-api
 API_KUSTOMIZE = deploy/api
 API_IMAGE = elp-api:local
+API_NAMESPACE = elp
 ELPCTL_DIR = apps/elpctl
 ELPCTL_BIN = bin/elpctl
 # Pin stable k8s; override to match your kind release notes if needed.
@@ -156,9 +157,9 @@ kind-load-api: ## Load the local API image into the kind cluster
 
 api-install: ## Install API Deployment, Service, and RBAC into the cluster
 	kubectl apply -k $(API_KUSTOMIZE)
-	kubectl rollout status deployment/elp-api -n default --timeout=120s
-	@echo "In-cluster URL: http://elp-api.default.svc.cluster.local:8080"
-	@IP=$$(bash tools/kind/wait-loadbalancer.sh elp-api default 120); \
+	kubectl rollout status deployment/elp-api -n $(API_NAMESPACE) --timeout=120s
+	@echo "In-cluster URL: http://elp-api.$(API_NAMESPACE).svc.cluster.local:8080"
+	@IP=$$(bash tools/kind/wait-loadbalancer.sh elp-api $(API_NAMESPACE) 120); \
 	echo "External URL: http://$$IP:8080"; \
 	echo "elpctl: elpctl config init && elpctl device list"
 
@@ -168,7 +169,7 @@ api-uninstall: ## Remove in-cluster API Deployment, Service, and RBAC
 api-dev-install: api-image kind-load-api api-install ## Build, load, and install API on kind
 
 api-port-forward: ## Fallback: forward in-cluster API to localhost:8080
-	kubectl port-forward -n default svc/elp-api 8080:8080
+	kubectl port-forward -n $(API_NAMESPACE) svc/elp-api 8080:8080
 
 ##@ elpctl
 

@@ -150,7 +150,7 @@ curl http://<EXTERNAL-IP>:8080/healthz
 ./bin/elpctl device list
 ```
 
-If the IP is not shown, check `kubectl get svc elp-api`. As a fallback you can
+If the IP is not shown, check `kubectl get svc elp-api -n elp`. As a fallback you can
 still use `make api-port-forward` for `http://localhost:8080`.
 
 Requires NATS (`make nats-install` or `make dev-infra-up`). The Deployment sets
@@ -257,8 +257,9 @@ contexts:
 current-context: kind-elp@default
 ```
 
-`elpctl config init` discovers the `elp-api` LoadBalancer address via kubectl
-and writes this file. Cluster/context names follow the active kubectl context.
+`elpctl config init` discovers the `elp-api` LoadBalancer address in the `elp`
+namespace via kubectl and writes this file. Cluster/context names follow the
+active kubectl context; device namespace defaults to `default`.
 
 Use `-o json` for machine-readable output.
 
