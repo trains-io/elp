@@ -223,3 +223,31 @@ func TestPatchBroadcastFlagsPublishesControl(t *testing.T) {
 		t.Fatalf("PublishSetBroadcastFlags calls = %d, want 1", control.calls)
 	}
 }
+
+func TestDeleteDeviceHTTP(t *testing.T) {
+	cr := testDeviceCR()
+	cl := newFakeDeviceClient(t, cr)
+	h := &DeviceHandler{
+		Client:  cl,
+		Control: noopControl{},
+	}
+
+	req := httptest.NewRequest(http.MethodDelete, "/basement", nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("namespace", "default")
+	rctx.URLParams.Add("name", "basement")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	rr := httptest.NewRecorder()
+	h.deleteDevice(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+
+	stored := &z21v1alpha1.Z21Device{}
+	err := cl.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: "basement"}, stored)
+	if err == nil {
+		t.Fatal("expected device to be deleted")
+	}
+}

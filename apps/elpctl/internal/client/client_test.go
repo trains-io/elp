@@ -71,6 +71,20 @@ func TestGetDevice(t *testing.T) {
 	}
 }
 
+func TestDeleteDevice(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete || r.URL.Path != "/api/v1/namespaces/default/devices/basement" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	if err := New(srv.URL, "default").DeleteDevice(context.Background(), "basement"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestWatchDevicesSSE(t *testing.T) {
 	body := strings.Join([]string{
 		"event: snapshot",

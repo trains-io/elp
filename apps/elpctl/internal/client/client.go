@@ -48,6 +48,10 @@ func (c *Client) ListDevices(ctx context.Context) (DeviceList, error) {
 	return out, err
 }
 
+func (c *Client) DeleteDevice(ctx context.Context, name string) error {
+	return c.doJSON(ctx, http.MethodDelete, c.devicePath(name), nil, http.StatusNoContent, nil)
+}
+
 // WatchDevices streams SSE device events until ctx is cancelled.
 func (c *Client) WatchDevices(ctx context.Context, fn func(StreamEvent) error) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.streamPath(), nil)

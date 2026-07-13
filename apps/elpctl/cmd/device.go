@@ -20,6 +20,7 @@ func newDeviceCmd() *cobra.Command {
 		newDeviceCreateCmd(),
 		newDeviceGetCmd(),
 		newDeviceListCmd(),
+		newDeviceDeleteCmd(),
 	)
 	return cmd
 }
@@ -146,6 +147,22 @@ func newDeviceListCmd() *cobra.Command {
 	return cmd
 }
 
+func newDeviceDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete NAME",
+		Short: "Delete a Z21 device",
+		Args:  ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := newAPIClient()
+			if err := c.DeleteDevice(cmd.Context(), args[0]); err != nil {
+				return err
+			}
+			return printDeviceDeleted(args[0], outputFmt)
+		},
+	}
+	return cmd
+}
+
 func newAPIClient() *client.Client {
 	return client.New(serverURL, namespace)
 }
@@ -187,6 +204,17 @@ func printDevice(device client.Device, format string) error {
 		return json.NewEncoder(os.Stdout).Encode(device)
 	}
 	return printDeviceTable([]client.Device{device})
+}
+
+func printDeviceDeleted(name, format string) error {
+	if format == "json" {
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{
+			"name":    name,
+			"deleted": true,
+		})
+	}
+	_, err := fmt.Fprintf(os.Stdout, "device %q deleted\n", name)
+	return err
 }
 
 func printDeviceTable(items []client.Device) error {

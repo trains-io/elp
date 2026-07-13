@@ -241,6 +241,7 @@ elpctl device create sim-bench \
 elpctl device list
 elpctl device get basement
 elpctl device get basement -w
+elpctl device delete basement
 ```
 
 Environment variables:
