@@ -60,7 +60,7 @@ clean: ## Remove built binaries
 	rm -rf bin/
 
 operator-image: ## Build the controller container image for local kind
-	docker build -t $(OPERATOR_IMAGE) -f $(OPERATOR_DIR)/Dockerfile $(OPERATOR_DIR)
+	DOCKER_BUILDKIT=1 docker build -t $(OPERATOR_IMAGE) -f $(OPERATOR_DIR)/Dockerfile .
 
 kind-load-operator: ## Load the local controller image into the kind cluster
 	@if ! kind get clusters 2>/dev/null | grep -qx '$(KIND_CLUSTER_NAME)'; then \
