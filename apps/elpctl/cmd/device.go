@@ -42,7 +42,7 @@ func newDeviceCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create NAME",
 		Short: "Register a new Z21 device",
-		Args:  cobra.ExactArgs(1),
+		Args:  ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req := client.DeviceCreate{
 				Name: args[0],
@@ -55,7 +55,7 @@ func newDeviceCreateCmd() *cobra.Command {
 			switch backendType {
 			case "hardware":
 				if address == "" {
-					return fmt.Errorf("--address is required for hardware backend")
+					return usageErr(cmd, "--address is required for hardware backend")
 				}
 				req.Address = address
 			case "simulator":
@@ -68,7 +68,7 @@ func newDeviceCreateCmd() *cobra.Command {
 					Simulator: sim,
 				}
 			default:
-				return fmt.Errorf("unsupported backend type %q", backendType)
+				return usageErr(cmd, fmt.Sprintf("unsupported backend type %q", backendType))
 			}
 
 			if hostNetwork || gatewayImage != "" || len(nodeSelector) > 0 {
@@ -110,7 +110,7 @@ func newDeviceGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get NAME",
 		Short: "Show a Z21 device",
-		Args:  cobra.ExactArgs(1),
+		Args:  ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := newAPIClient()
 			device, err := c.GetDevice(cmd.Context(), args[0])
@@ -128,7 +128,7 @@ func newDeviceListCmd() *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List Z21 devices",
-		Args:    cobra.NoArgs,
+		Args:    NoArgs(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := newAPIClient()
 			list, err := c.ListDevices(cmd.Context())
@@ -146,7 +146,7 @@ func newDeviceWatchCmd() *cobra.Command {
 		Use:   "watch [NAME]",
 		Short: "Watch Z21 device status changes (SSE)",
 		Long:  "Streams device updates from the API. With NAME, only events for that device are shown.",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var filter string
 			if len(args) == 1 {

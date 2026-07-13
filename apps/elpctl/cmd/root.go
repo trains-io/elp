@@ -27,6 +27,9 @@ var rootCmd = &cobra.Command{
 
 func Execute() error {
 	if err := rootCmd.Execute(); err != nil {
+		if printUsageError(err) {
+			return err
+		}
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		return err
 	}
@@ -41,6 +44,7 @@ func init() {
 
 	rootCmd.AddCommand(newDeviceCmd())
 	rootCmd.AddCommand(newConfigCmd())
+	setUsageOnError(rootCmd)
 }
 
 func applyConfigDefaults(cmd *cobra.Command) error {
