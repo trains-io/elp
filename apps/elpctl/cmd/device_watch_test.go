@@ -20,7 +20,12 @@ func TestDeviceWatchWriterRedrawsInPlace(t *testing.T) {
 		Name:      "dev-01",
 		Namespace: "default",
 		Address:   "z21-sim-dev-01.elp.svc.cluster.local.:21105",
-		Status:    &client.DeviceStatus{Phase: "Starting", GatewayReady: false},
+		Status: &client.DeviceStatus{
+			Phase:          "Starting",
+			GatewayReady:   false,
+			DeviceReachable: false,
+			Degraded:       false,
+		},
 	}}
 	if err := w.writeSnapshot(items); err != nil {
 		t.Fatal(err)
@@ -32,6 +37,7 @@ func TestDeviceWatchWriterRedrawsInPlace(t *testing.T) {
 
 	items[0].Status.Phase = "Running"
 	items[0].Status.GatewayReady = true
+	items[0].Status.DeviceReachable = true
 	buf.Reset()
 	if err := w.writeUpdated(items[0]); err != nil {
 		t.Fatal(err)
@@ -48,6 +54,12 @@ func TestDeviceWatchWriterRedrawsInPlace(t *testing.T) {
 	}
 	if !strings.Contains(second, "Running") {
 		t.Fatalf("second render missing Running: %q", second)
+	}
+	if strings.Contains(second, "DEGRADEDD") || strings.Contains(second, "falsee") {
+		t.Fatalf("redraw left trailing characters: %q", second)
+	}
+	if !strings.Contains(second, "\033[K") {
+		t.Fatalf("redraw should erase to end of line: %q", second)
 	}
 }
 

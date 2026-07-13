@@ -61,14 +61,33 @@ func (w *deviceWatchWriter) render() error {
 	if err != nil {
 		return err
 	}
-	if w.isTTY(w.out) && w.lines > 0 {
+	redraw := w.isTTY(w.out) && w.lines > 0
+	if redraw {
 		if _, err := fmt.Fprint(w.out, strings.Repeat("\033[F", w.lines)); err != nil {
 			return err
 		}
 	}
 	w.lines = deviceTableLineCount(table)
-	_, err = fmt.Fprint(w.out, table)
+	output := table
+	if redraw {
+		output = eraseToEndOfLine(table)
+	}
+	_, err = fmt.Fprint(w.out, output)
 	return err
+}
+
+// eraseToEndOfLine appends ANSI EL to each row so shorter redraws do not leave
+// trailing characters from the previous table (tabwriter column widths can shrink).
+func eraseToEndOfLine(table string) string {
+	table = strings.TrimRight(table, "\n")
+	if table == "" {
+		return ""
+	}
+	lines := strings.Split(table, "\n")
+	for i, line := range lines {
+		lines[i] = line + "\033[K"
+	}
+	return strings.Join(lines, "\n") + "\n"
 }
 
 func devicesFromMap(byName map[string]client.Device) []client.Device {
