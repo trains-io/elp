@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +12,48 @@ import (
 
 	"github.com/trains-io/elp/apps/elpctl/internal/client"
 )
+
+func runDeviceWatch(ctx context.Context, c *client.Client, name string) error {
+	watchOut := newDeviceWatchWriter(os.Stdout)
+	return c.WatchDevices(ctx, func(event client.StreamEvent) error {
+		return handleDeviceWatchEvent(watchOut, event, name)
+	})
+}
+
+func handleDeviceWatchEvent(watchOut *deviceWatchWriter, event client.StreamEvent, name string) error {
+	switch event.Type {
+	case "snapshot":
+		items := filterDevices(event.Items, name)
+		if outputFmt == "json" {
+			return json.NewEncoder(os.Stdout).Encode(client.DeviceList{Items: items})
+		}
+		return watchOut.writeSnapshot(items)
+	case "updated":
+		if event.Device.Name != name {
+			return nil
+		}
+		if outputFmt == "json" {
+			return json.NewEncoder(os.Stdout).Encode(event.Device)
+		}
+		return watchOut.writeUpdated(event.Device)
+	case "deleted":
+		if event.Name != name {
+			return nil
+		}
+		if outputFmt == "json" {
+			return json.NewEncoder(os.Stdout).Encode(map[string]string{
+				"type": "deleted",
+				"name": event.Name,
+			})
+		}
+		return watchOut.writeDeleted(event.Name)
+	default:
+		if outputFmt == "json" {
+			return json.NewEncoder(os.Stdout).Encode(event)
+		}
+		return nil
+	}
+}
 
 type deviceWatchWriter struct {
 	out    io.Writer

@@ -20,7 +20,6 @@ func newDeviceCmd() *cobra.Command {
 		newDeviceCreateCmd(),
 		newDeviceGetCmd(),
 		newDeviceListCmd(),
-		newDeviceWatchCmd(),
 	)
 	return cmd
 }
@@ -107,12 +106,17 @@ func newDeviceCreateCmd() *cobra.Command {
 }
 
 func newDeviceGetCmd() *cobra.Command {
+	var watch bool
+
 	cmd := &cobra.Command{
 		Use:   "get NAME",
 		Short: "Show a Z21 device",
 		Args:  ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := newAPIClient()
+			if watch {
+				return runDeviceWatch(cmd.Context(), c, args[0])
+			}
 			device, err := c.GetDevice(cmd.Context(), args[0])
 			if err != nil {
 				return err
@@ -120,6 +124,7 @@ func newDeviceGetCmd() *cobra.Command {
 			return printDevice(device, outputFmt)
 		},
 	}
+	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Watch for changes until interrupted")
 	return cmd
 }
 
@@ -136,63 +141,6 @@ func newDeviceListCmd() *cobra.Command {
 				return err
 			}
 			return printDeviceList(list.Items, outputFmt)
-		},
-	}
-	return cmd
-}
-
-func newDeviceWatchCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "watch [NAME]",
-		Short: "Watch Z21 device status changes (SSE)",
-		Long:  "Streams device updates from the API. With NAME, only events for that device are shown.",
-		Args:  MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			var filter string
-			if len(args) == 1 {
-				filter = args[0]
-			}
-
-			c := newAPIClient()
-			ctx := cmd.Context()
-			watchOut := newDeviceWatchWriter(os.Stdout)
-			return c.WatchDevices(ctx, func(event client.StreamEvent) error {
-				switch event.Type {
-				case "snapshot":
-					items := event.Items
-					if filter != "" {
-						items = filterDevices(items, filter)
-					}
-					if outputFmt == "json" {
-						return json.NewEncoder(os.Stdout).Encode(client.DeviceList{Items: items})
-					}
-					return watchOut.writeSnapshot(items)
-				case "updated":
-					if filter != "" && event.Device.Name != filter {
-						return nil
-					}
-					if outputFmt == "json" {
-						return json.NewEncoder(os.Stdout).Encode(event.Device)
-					}
-					return watchOut.writeUpdated(event.Device)
-				case "deleted":
-					if filter != "" && event.Name != filter {
-						return nil
-					}
-					if outputFmt == "json" {
-						return json.NewEncoder(os.Stdout).Encode(map[string]string{
-							"type": "deleted",
-							"name": event.Name,
-						})
-					}
-					return watchOut.writeDeleted(event.Name)
-				default:
-					if outputFmt == "json" {
-						return json.NewEncoder(os.Stdout).Encode(event)
-					}
-					return nil
-				}
-			})
 		},
 	}
 	return cmd

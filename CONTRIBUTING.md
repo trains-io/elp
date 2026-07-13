@@ -240,8 +240,7 @@ elpctl device create sim-bench \
 
 elpctl device list
 elpctl device get basement
-elpctl device watch basement
-elpctl device watch          # all devices in namespace
+elpctl device get basement -w
 ```
 
 Environment variables:
