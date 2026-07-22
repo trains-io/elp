@@ -266,14 +266,14 @@ clusters:
 contexts:
 - context:
     cluster: kind-elp
-    namespace: default
-  name: kind-elp@default
-current-context: kind-elp@default
+    namespace: elp
+  name: kind-elp@elp
+current-context: kind-elp@elp
 ```
 
 `elpctl config init` discovers the `elp-api` LoadBalancer address in the `elp`
 namespace via kubectl and writes this file. Cluster/context names follow the
-active kubectl context; device namespace defaults to `default`.
+active kubectl context; device namespace defaults to `elp`.
 
 Use `-o json` for machine-readable output.
 

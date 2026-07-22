@@ -11,6 +11,9 @@ import (
 const (
 	APIVersion = "v1"
 	Kind       = "Config"
+
+	// DefaultDeviceNamespace is where Z21Device resources are managed by default.
+	DefaultDeviceNamespace = "elp"
 )
 
 // Config mirrors kubeconfig: clusters, contexts, and a current context.
@@ -116,7 +119,7 @@ func (c *Config) Current() (server, namespace string, err error) {
 	}
 	ns := ctx.Context.Namespace
 	if ns == "" {
-		ns = "default"
+		ns = DefaultDeviceNamespace
 	}
 	return cluster.Cluster.Server, ns, nil
 }
@@ -130,7 +133,7 @@ func (c *Config) UpsertClusterContext(clusterName, server, contextName, namespac
 		c.Kind = Kind
 	}
 	if namespace == "" {
-		namespace = "default"
+		namespace = DefaultDeviceNamespace
 	}
 
 	found := false

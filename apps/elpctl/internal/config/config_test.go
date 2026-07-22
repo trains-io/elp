@@ -70,6 +70,19 @@ func TestDefaultPathEnv(t *testing.T) {
 	}
 }
 
+func TestUpsertEmptyNamespaceUsesDefault(t *testing.T) {
+	cfg := &Config{}
+	cfg.UpsertClusterContext("kind-elp", "http://localhost:8080", "kind-elp@elp", "")
+
+	_, ns, err := cfg.Current()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ns != DefaultDeviceNamespace {
+		t.Fatalf("namespace = %q, want %q", ns, DefaultDeviceNamespace)
+	}
+}
+
 func TestWritePermissions(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nested", "config")

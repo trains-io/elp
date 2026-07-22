@@ -87,7 +87,7 @@ func applyConfigDefaults(cmd *cobra.Command) error {
 		}
 	}
 	if namespace == "" {
-		namespace = "default"
+		namespace = config.DefaultDeviceNamespace
 	}
 	return nil
 }

@@ -125,7 +125,7 @@ Requires kubectl access to the cluster where the API is deployed.`,
 	cmd.Flags().StringVar(&kubeContext, "context", "", "kubectl context name (default: current-context)")
 	cmd.Flags().StringVar(&serviceName, "service", "elp-api", "API Service name")
 	cmd.Flags().StringVar(&serviceNamespace, "service-namespace", "elp", "API Service namespace")
-	cmd.Flags().StringVar(&deviceNamespace, "namespace", "default", "Target namespace for Z21Device resources")
+	cmd.Flags().StringVar(&deviceNamespace, "namespace", config.DefaultDeviceNamespace, "Target namespace for Z21Device resources")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print elpconfig to stdout instead of writing a file")
 	return cmd
 }
