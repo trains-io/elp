@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elp-config
+data:
+  gateway.trace: "false"
+  simulator.trace: "false"

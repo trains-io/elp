@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	z21v1alpha1 "github.com/trains-io/elp/operators/z21-device/api/v1alpha1"
+	"github.com/trains-io/elp/operators/z21-device/internal/runtimeconfig"
 )
 
 func TestDesiredGatewayDeployment(t *testing.T) {
@@ -41,7 +42,7 @@ func TestDesiredGatewayDeployment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dep := desiredGatewayDeployment(device, "gateway:test", "z21-gateway-basement", z21Addr)
+	dep := desiredGatewayDeployment(device, "gateway:test", "z21-gateway-basement", z21Addr, runtimeconfig.Config{})
 	dep.Name = gatewayDeploymentName(device)
 
 	if dep.Name != "z21-gateway-basement" {
@@ -98,7 +99,7 @@ func TestDesiredGatewayDeploymentSimulatorAddress(t *testing.T) {
 		t.Fatalf("Z21Address = %q", z21Addr)
 	}
 
-	dep := desiredGatewayDeployment(device, "gateway:test", "z21-gateway-lab", z21Addr)
+	dep := desiredGatewayDeployment(device, "gateway:test", "z21-gateway-lab", z21Addr, runtimeconfig.Config{})
 	if envValue(dep.Spec.Template.Spec.Containers[0].Env, "Z21_ADDRESS") != z21Addr {
 		t.Fatal("gateway should dial simulator service DNS name")
 	}
@@ -117,7 +118,7 @@ func TestDesiredSimulatorDeployment(t *testing.T) {
 		},
 	}
 
-	dep := desiredSimulatorDeployment(device)
+	dep := desiredSimulatorDeployment(device, runtimeconfig.Config{})
 	if len(dep.Spec.Template.Spec.Containers) != 1 {
 		t.Fatalf("containers = %d, want 1", len(dep.Spec.Template.Spec.Containers))
 	}
@@ -165,8 +166,8 @@ func TestBroadcastFlagsDoNotChangeGatewayDeployment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	without := desiredGatewayDeployment(base, "z21-gateway:local", "z21-gateway-main", z21Addr).Spec
-	with := desiredGatewayDeployment(withFlags, "z21-gateway:local", "z21-gateway-main", z21Addr).Spec
+	without := desiredGatewayDeployment(base, "z21-gateway:local", "z21-gateway-main", z21Addr, runtimeconfig.Config{}).Spec
+	with := desiredGatewayDeployment(withFlags, "z21-gateway:local", "z21-gateway-main", z21Addr, runtimeconfig.Config{}).Spec
 	if !equality.Semantic.DeepEqual(without, with) {
 		t.Fatal("broadcastFlags must not affect gateway deployment spec")
 	}
@@ -236,6 +237,45 @@ func (d *appsv1DeploymentReady) deploy() *appsv1.Deployment {
 		return nil
 	}
 	return &appsv1.Deployment{Status: appsv1.DeploymentStatus{ReadyReplicas: d.ready}}
+}
+
+func TestDesiredGatewayDeploymentTraceFromRuntimeConfig(t *testing.T) {
+	device := &z21v1alpha1.Z21Device{
+		ObjectMeta: metav1.ObjectMeta{Name: "lab", Namespace: "default"},
+		Spec: z21v1alpha1.Z21DeviceSpec{
+			Backend: z21v1alpha1.BackendSpec{
+				Type: z21v1alpha1.BackendHardware,
+				Hardware: &z21v1alpha1.HardwareBackend{
+					Host: "192.168.0.42",
+				},
+			},
+			NATS: z21v1alpha1.NatsSpec{URL: "nats://nats.default.svc:4222"},
+		},
+	}
+	z21Addr, err := device.Z21Address()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dep := desiredGatewayDeployment(device, "gateway:test", "z21-gateway-lab", z21Addr, runtimeconfig.Config{GatewayTrace: true})
+	if envValue(dep.Spec.Template.Spec.Containers[0].Env, "Z21_LOG_MESSAGES") != "true" {
+		t.Fatalf("env = %#v", dep.Spec.Template.Spec.Containers[0].Env)
+	}
+}
+
+func TestDesiredSimulatorDeploymentTraceFromRuntimeConfig(t *testing.T) {
+	device := &z21v1alpha1.Z21Device{
+		ObjectMeta: metav1.ObjectMeta{Name: "lab", Namespace: "default"},
+		Spec: z21v1alpha1.Z21DeviceSpec{
+			Backend: z21v1alpha1.BackendSpec{Type: z21v1alpha1.BackendSimulator},
+		},
+	}
+
+	dep := desiredSimulatorDeployment(device, runtimeconfig.Config{SimulatorTrace: true})
+	sim := dep.Spec.Template.Spec.Containers[0]
+	if envValue(sim.Env, "Z21_SIM_TRACE") != "true" {
+		t.Fatalf("env = %#v", sim.Env)
+	}
 }
 
 func envValue(vars []corev1.EnvVar, name string) string {

@@ -19,6 +19,7 @@ OPERATOR_DEPLOYMENT = z21-device-controller
 OPERATOR_CRD_KUSTOMIZE = $(OPERATOR_DIR)/config/crd
 OPERATOR_KUSTOMIZE = $(OPERATOR_DIR)/config/default
 OPERATOR_CANPOOL_KUSTOMIZE = $(OPERATOR_DIR)/config/canpool
+OPERATOR_RUNTIME_KUSTOMIZE = $(OPERATOR_DIR)/config/runtime
 OPERATOR_IMAGE = z21-device-controller:local
 SIM_CONTROLLER_DIR = operators/z21-sim-controller
 SIM_CONTROLLER_IMAGE = z21-sim-controller:local
@@ -93,10 +94,14 @@ operator-install-crd: ## Install Z21Device and Simulation CRDs
 operator-install-canpool: ## Install the default CANAddressPool in the elp namespace
 	kubectl apply -k $(OPERATOR_CANPOOL_KUSTOMIZE)
 
-operator-install: ## Install CRDs, RBAC, controller managers, and default CAN address pool
+operator-install-runtime-config: ## Install elp-wide runtime ConfigMap in the elp namespace
+	kubectl apply -k $(OPERATOR_RUNTIME_KUSTOMIZE)
+
+operator-install: ## Install CRDs, RBAC, controller managers, and default cluster config
 	kubectl apply -k $(OPERATOR_KUSTOMIZE)
 	kubectl apply -k $(SIM_CONTROLLER_KUSTOMIZE)
 	kubectl apply -k $(OPERATOR_CANPOOL_KUSTOMIZE)
+	kubectl apply -k $(OPERATOR_RUNTIME_KUSTOMIZE)
 	kubectl rollout status deployment/$(OPERATOR_DEPLOYMENT) -n $(OPERATOR_NAMESPACE) --timeout=120s
 	kubectl rollout status deployment/$(SIM_CONTROLLER_DEPLOYMENT) -n $(OPERATOR_NAMESPACE) --timeout=120s
 

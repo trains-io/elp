@@ -16,11 +16,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	z21v1alpha1 "github.com/trains-io/elp/operators/z21-device/api/v1alpha1"
+	"github.com/trains-io/elp/operators/z21-device/internal/runtimeconfig"
 )
 
 const (
@@ -37,6 +42,7 @@ type Z21DeviceReconciler struct {
 	WorkloadNamespace string
 }
 
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=z21.trains.io,resources=z21devices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=z21.trains.io,resources=z21devices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=z21.trains.io,resources=z21devices/finalizers,verbs=update
@@ -70,6 +76,8 @@ func (r *Z21DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return r.reconcileDelete(ctx, &device)
 	}
 
+	runtimeCfg := r.loadRuntimeConfig(ctx)
+
 	saName, err := r.reconcileGatewayServiceAccount(ctx, &device)
 	if err != nil {
 		logger.Error(err, "failed to reconcile gateway service account")
@@ -81,7 +89,7 @@ func (r *Z21DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return r.updateStatus(ctx, &device, statusInput{phase: z21v1alpha1.PhaseFailed})
 	}
 
-	simDeploy, simService, err := r.reconcileSimulator(ctx, &device)
+	simDeploy, simService, err := r.reconcileSimulator(ctx, &device, runtimeCfg)
 	if err != nil {
 		logger.Error(err, "failed to reconcile simulator")
 		return r.updateStatus(ctx, &device, statusInput{
@@ -91,7 +99,7 @@ func (r *Z21DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		})
 	}
 
-	deploy, err := r.reconcileGatewayDeployment(ctx, &device, saName)
+	deploy, err := r.reconcileGatewayDeployment(ctx, &device, saName, runtimeCfg)
 	if err != nil {
 		logger.Error(err, "failed to reconcile gateway deployment")
 		return r.updateStatus(ctx, &device, statusInput{
@@ -142,6 +150,7 @@ func (r *Z21DeviceReconciler) reconcileDelete(ctx context.Context, device *z21v1
 func (r *Z21DeviceReconciler) reconcileSimulator(
 	ctx context.Context,
 	device *z21v1alpha1.Z21Device,
+	runtimeCfg runtimeconfig.Config,
 ) (*appsv1.Deployment, string, error) {
 	if device.Spec.Backend.Type != z21v1alpha1.BackendSimulator {
 		if err := r.deleteSimulator(ctx, device); err != nil {
@@ -155,7 +164,7 @@ func (r *Z21DeviceReconciler) reconcileSimulator(
 		return nil, "", err
 	}
 
-	deploy, err := r.reconcileSimulatorDeployment(ctx, device)
+	deploy, err := r.reconcileSimulatorDeployment(ctx, device, runtimeCfg)
 	if err != nil {
 		return deploy, svcName, err
 	}
@@ -199,7 +208,7 @@ func (r *Z21DeviceReconciler) reconcileSimulatorService(ctx context.Context, dev
 	return name, nil
 }
 
-func (r *Z21DeviceReconciler) reconcileSimulatorDeployment(ctx context.Context, device *z21v1alpha1.Z21Device) (*appsv1.Deployment, error) {
+func (r *Z21DeviceReconciler) reconcileSimulatorDeployment(ctx context.Context, device *z21v1alpha1.Z21Device, runtimeCfg runtimeconfig.Config) (*appsv1.Deployment, error) {
 	name := simulatorDeploymentName(device)
 	labels := simulatorLabels(device)
 
@@ -207,7 +216,7 @@ func (r *Z21DeviceReconciler) reconcileSimulatorDeployment(ctx context.Context, 
 	deploy.Name = name
 	deploy.Namespace = r.workloadNamespace()
 
-	desired := desiredSimulatorDeployment(device)
+	desired := desiredSimulatorDeployment(device, runtimeCfg)
 	desired.Name = name
 	desired.Namespace = r.workloadNamespace()
 	desired.Labels = labels
@@ -348,7 +357,7 @@ func (r *Z21DeviceReconciler) reconcileGatewayRBAC(ctx context.Context, device *
 	return nil
 }
 
-func (r *Z21DeviceReconciler) reconcileGatewayDeployment(ctx context.Context, device *z21v1alpha1.Z21Device, saName string) (*appsv1.Deployment, error) {
+func (r *Z21DeviceReconciler) reconcileGatewayDeployment(ctx context.Context, device *z21v1alpha1.Z21Device, saName string, runtimeCfg runtimeconfig.Config) (*appsv1.Deployment, error) {
 	name := gatewayDeploymentName(device)
 	labels := gatewayLabels(device)
 
@@ -361,7 +370,7 @@ func (r *Z21DeviceReconciler) reconcileGatewayDeployment(ctx context.Context, de
 	deploy.Name = name
 	deploy.Namespace = r.workloadNamespace()
 
-	desired := desiredGatewayDeployment(device, r.gatewayImage(), saName, z21Address)
+	desired := desiredGatewayDeployment(device, r.gatewayImage(), saName, z21Address, runtimeCfg)
 	desired.Name = name
 	desired.Namespace = r.workloadNamespace()
 	desired.Labels = labels
@@ -555,6 +564,21 @@ func (r *Z21DeviceReconciler) gatewayImage() string {
 	return defaultGatewayImage
 }
 
+func (r *Z21DeviceReconciler) loadRuntimeConfig(ctx context.Context) runtimeconfig.Config {
+	cm := &corev1.ConfigMap{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      z21v1alpha1.ELPConfigMapName,
+		Namespace: r.workloadNamespace(),
+	}, cm)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			log.FromContext(ctx).Error(err, "failed to load elp runtime config")
+		}
+		return runtimeconfig.Config{}
+	}
+	return runtimeconfig.FromConfigMap(cm.Data)
+}
+
 func (r *Z21DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&z21v1alpha1.Z21Device{}).
@@ -563,7 +587,33 @@ func (r *Z21DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.Role{}).
 		Owns(&rbacv1.RoleBinding{}).
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(r.mapELPConfigToDevices),
+			builder.WithPredicates(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+				return obj.GetNamespace() == r.workloadNamespace() &&
+					obj.GetName() == z21v1alpha1.ELPConfigMapName
+			})),
+		).
 		Complete(r)
+}
+
+func (r *Z21DeviceReconciler) mapELPConfigToDevices(ctx context.Context, _ client.Object) []reconcile.Request {
+	var devices z21v1alpha1.Z21DeviceList
+	if err := r.List(ctx, &devices); err != nil {
+		return nil
+	}
+
+	reqs := make([]reconcile.Request, 0, len(devices.Items))
+	for _, device := range devices.Items {
+		reqs = append(reqs, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: device.Namespace,
+				Name:      device.Name,
+			},
+		})
+	}
+	return reqs
 }
 
 func gatewayDeploymentName(device *z21v1alpha1.Z21Device) string {
@@ -611,10 +661,19 @@ func simulatorSelector(device *z21v1alpha1.Z21Device) map[string]string {
 	}
 }
 
-func desiredSimulatorDeployment(device *z21v1alpha1.Z21Device) *appsv1.Deployment {
+func desiredSimulatorDeployment(device *z21v1alpha1.Z21Device, runtimeCfg runtimeconfig.Config) *appsv1.Deployment {
 	labels := simulatorLabels(device)
 	selector := simulatorSelector(device)
 	replicas := int32(1)
+
+	args := []string{
+		"-addr", fmt.Sprintf("0.0.0.0:%d", z21v1alpha1.DefaultZ21Port),
+		"-grpc-addr", fmt.Sprintf("0.0.0.0:%d", z21v1alpha1.DefaultSimulatorGRPCPort),
+	}
+	env := []corev1.EnvVar{}
+	if runtimeCfg.SimulatorTrace {
+		env = append(env, corev1.EnvVar{Name: "Z21_SIM_TRACE", Value: "true"})
+	}
 
 	return &appsv1.Deployment{
 		Spec: appsv1.DeploymentSpec{
@@ -627,10 +686,8 @@ func desiredSimulatorDeployment(device *z21v1alpha1.Z21Device) *appsv1.Deploymen
 						Name:            simulatorComponent,
 						Image:           device.SimulatorImage(),
 						ImagePullPolicy: corev1.PullIfNotPresent,
-						Args: []string{
-							"-addr", fmt.Sprintf("0.0.0.0:%d", z21v1alpha1.DefaultZ21Port),
-							"-grpc-addr", fmt.Sprintf("0.0.0.0:%d", z21v1alpha1.DefaultSimulatorGRPCPort),
-						},
+						Args:            args,
+						Env:             env,
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          "z21-udp",
@@ -650,7 +707,7 @@ func desiredSimulatorDeployment(device *z21v1alpha1.Z21Device) *appsv1.Deploymen
 	}
 }
 
-func desiredGatewayDeployment(device *z21v1alpha1.Z21Device, image, saName, z21Address string) *appsv1.Deployment {
+func desiredGatewayDeployment(device *z21v1alpha1.Z21Device, image, saName, z21Address string, runtimeCfg runtimeconfig.Config) *appsv1.Deployment {
 	if device.Spec.Gateway.Image != "" {
 		image = device.Spec.Gateway.Image
 	}
@@ -662,6 +719,16 @@ func desiredGatewayDeployment(device *z21v1alpha1.Z21Device, image, saName, z21A
 	}
 
 	replicas := int32(1)
+	env := []corev1.EnvVar{
+		{Name: "Z21_ADDRESS", Value: z21Address},
+		{Name: "NATS_URL", Value: z21v1alpha1.EnsureNATSURLClusterDNS(device.Spec.NATS.URL)},
+		{Name: "NATS_SUBJECT_PREFIX", Value: device.SubjectPrefix()},
+		{Name: "Z21_DEVICE_NAME", Value: device.Name},
+		{Name: "Z21_DEVICE_NAMESPACE", Value: device.Namespace},
+	}
+	if runtimeCfg.GatewayTrace {
+		env = append(env, corev1.EnvVar{Name: "Z21_LOG_MESSAGES", Value: "true"})
+	}
 	podSpec := corev1.PodSpec{
 		ServiceAccountName: saName,
 		HostNetwork:        device.Spec.Gateway.HostNetwork,
@@ -671,13 +738,7 @@ func desiredGatewayDeployment(device *z21v1alpha1.Z21Device, image, saName, z21A
 				Name:            gatewayComponent,
 				Image:           image,
 				ImagePullPolicy: corev1.PullIfNotPresent,
-				Env: []corev1.EnvVar{
-					{Name: "Z21_ADDRESS", Value: z21Address},
-					{Name: "NATS_URL", Value: z21v1alpha1.EnsureNATSURLClusterDNS(device.Spec.NATS.URL)},
-					{Name: "NATS_SUBJECT_PREFIX", Value: device.SubjectPrefix()},
-					{Name: "Z21_DEVICE_NAME", Value: device.Name},
-					{Name: "Z21_DEVICE_NAMESPACE", Value: device.Namespace},
-				},
+				Env:             env,
 				Ports: []corev1.ContainerPort{
 					{Name: "health", ContainerPort: 8080, Protocol: corev1.ProtocolTCP},
 				},

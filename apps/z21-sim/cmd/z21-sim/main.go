@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 
@@ -22,11 +23,12 @@ func main() {
 	traceFlag := flag.Bool("trace", false, "dump LAN and gRPC traffic to stderr")
 	flag.Parse()
 
+	trace := *traceFlag || envBool("Z21_SIM_TRACE")
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	var traceOpts []server.Option
 	var grpcTraceOpts []control.Option
-	if *traceFlag {
+	if trace {
 		traceOpts = append(traceOpts, server.WithTrace(os.Stderr))
 		grpcTraceOpts = append(grpcTraceOpts, control.WithTrace(os.Stderr))
 	}
@@ -85,4 +87,9 @@ func main() {
 	}
 
 	wg.Wait()
+}
+
+func envBool(key string) bool {
+	v, _ := strconv.ParseBool(os.Getenv(key))
+	return v
 }
