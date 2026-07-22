@@ -273,12 +273,13 @@ func (d *Z21Device) SubjectPrefix() string {
 }
 
 const (
-	broadcastFlagXpressNet   uint32 = 0x00000001
-	broadcastFlagSystemState uint32 = 0x00000100
+	broadcastFlagXpressNet     uint32 = 0x00000001
+	broadcastFlagSystemState   uint32 = 0x00000100
+	broadcastFlagCANDetector   uint32 = 0x00080000
 )
 
 // DefaultBroadcastFlags is used when spec.broadcastFlags is unset.
-const DefaultBroadcastFlags uint32 = broadcastFlagXpressNet | broadcastFlagSystemState
+const DefaultBroadcastFlags uint32 = broadcastFlagXpressNet | broadcastFlagSystemState | broadcastFlagCANDetector
 
 // DefaultSimulatorImage is the in-cluster z21 simulator image.
 const DefaultSimulatorImage = "ghcr.io/trains-io/z21-sim:latest"

@@ -44,6 +44,23 @@ func TestSummarizeDiscovery(t *testing.T) {
 	}
 }
 
+func TestProcessCANDetectorMessages(t *testing.T) {
+	msgs := []protocol.Message{
+		{
+			Header: protocol.HeaderLANCANDetector,
+			Data:   []byte{0x04, 0xdb, 0x1f, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00},
+		},
+	}
+
+	discovered, err := summarizeDiscovery(msgs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(discovered) != 1 || discovered[0].NetID != 0xDB04 || discovered[0].Addr != 31 {
+		t.Fatalf("discovered = %#v", discovered)
+	}
+}
+
 func TestNormalizeDetectorName(t *testing.T) {
 	netID, ok := NormalizeDetectorName("detector-db04")
 	if !ok || netID != 0xDB04 {

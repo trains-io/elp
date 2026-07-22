@@ -8,11 +8,11 @@ import (
 )
 
 func TestDefaultBroadcastFlags(t *testing.T) {
-	if DefaultBroadcastFlags != broadcastFlagXpressNet|broadcastFlagSystemState {
+	if DefaultBroadcastFlags != broadcastFlagXpressNet|broadcastFlagSystemState|broadcastFlagCANDetector {
 		t.Fatalf("DefaultBroadcastFlags = %#x", DefaultBroadcastFlags)
 	}
-	if DefaultBroadcastFlags != 0x00000101 {
-		t.Fatalf("DefaultBroadcastFlags = %#x, want 0x101", DefaultBroadcastFlags)
+	if DefaultBroadcastFlags != 0x00080101 {
+		t.Fatalf("DefaultBroadcastFlags = %#x, want 0x80101", DefaultBroadcastFlags)
 	}
 }
 

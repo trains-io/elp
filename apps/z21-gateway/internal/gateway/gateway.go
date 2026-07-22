@@ -225,6 +225,11 @@ func bridgeZ21(
 
 		trace.rx(msgs...)
 		now := time.Now()
+		if detMgr != nil {
+			if err := detMgr.ProcessCANDetectorMessages(ctx, msgs); err != nil {
+				slog.Warn("can detector broadcast handling failed", "error", err)
+			}
+		}
 		for _, msg := range msgs {
 			event := events.Event{
 				Timestamp:       now,

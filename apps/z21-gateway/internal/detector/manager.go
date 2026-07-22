@@ -64,7 +64,11 @@ func (m *Manager) SyncDiscovery(ctx context.Context, z21 *z21client.Client) erro
 	if err != nil {
 		return fmt.Errorf("can discovery: %w", err)
 	}
+	return m.ProcessCANDetectorMessages(ctx, msgs)
+}
 
+// ProcessCANDetectorMessages upserts CANDetector CRs from LAN_CAN_DETECTOR replies or broadcasts.
+func (m *Manager) ProcessCANDetectorMessages(ctx context.Context, msgs []protocol.Message) error {
 	discovered, err := summarizeDiscovery(msgs)
 	if err != nil {
 		return err
@@ -216,6 +220,10 @@ func (m *Manager) upsertDiscovered(ctx context.Context, det DiscoveredDetector) 
 
 	statusBase := current.DeepCopy()
 	addr := det.Addr
+	if current.Status.ObservedAddress != nil && *current.Status.ObservedAddress == addr &&
+		current.Status.Phase != "" {
+		return nil
+	}
 	current.Status.ObservedAddress = &addr
 	if current.Status.Phase == "" {
 		current.Status.Phase = z21v1alpha1.CANDetectorPhasePending
