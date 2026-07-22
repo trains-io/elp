@@ -221,11 +221,7 @@ build-gateway: ## Build bin/z21-gateway
 	cd $(GATEWAY_DIR) && go build -o ../../$(GATEWAY_BIN) .
 
 gateway-image: ## Build z21-gateway:local container image for kind
-	@if [ ! -d ../z21.go ]; then \
-		echo "z21.go not found at ../z21.go (clone github.com/trains-io/z21.go next to elp)"; exit 1; \
-	fi
-	DOCKER_BUILDKIT=1 docker build -t $(GATEWAY_IMAGE) -f $(GATEWAY_DIR)/Dockerfile \
-		--build-context z21go=../z21.go .
+	DOCKER_BUILDKIT=1 docker build -t $(GATEWAY_IMAGE) -f $(GATEWAY_DIR)/Dockerfile .
 
 kind-load-gateway: ## Load z21-gateway:local into the kind cluster
 	@if ! kind get clusters 2>/dev/null | grep -qx '$(KIND_CLUSTER_NAME)'; then \
@@ -243,9 +239,6 @@ build-z21-sim: ## Build bin/z21-sim
 	cd $(Z21_SIM_DIR) && go build -o ../../$(Z21_SIM_BIN) ./cmd/z21-sim
 
 z21-sim-image: ## Build ghcr.io/trains-io/z21-sim:local container image
-	@if [ ! -d ../z21.go ]; then \
-		echo "z21.go not found at ../z21.go (clone github.com/trains-io/z21.go next to elp)"; exit 1; \
-	fi
 	DOCKER_BUILDKIT=1 docker build -t $(Z21_SIM_IMAGE) -f $(Z21_SIM_DIR)/Dockerfile $(Z21_SIM_DIR)
 
 kind-load-z21-sim: ## Load z21-sim:local into the kind cluster

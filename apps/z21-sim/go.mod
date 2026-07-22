@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.35.0
-	github.com/trains-io/z21.go v0.0.0
+	github.com/trains-io/z21.go v0.1.0
 	google.golang.org/grpc v1.68.1
 	google.golang.org/protobuf v1.36.5
 )

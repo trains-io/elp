@@ -6,7 +6,7 @@ require (
 	github.com/nats-io/nats.go v1.41.2
 	github.com/trains-io/elp/operators/z21-device v0.0.0
 	github.com/trains-io/elp/packages/events v0.0.0
-	github.com/trains-io/z21.go v0.0.0
+	github.com/trains-io/z21.go v0.1.0
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
 	k8s.io/client-go v0.33.1
@@ -75,5 +75,6 @@ require (
 replace (
 	github.com/trains-io/elp/operators/z21-device => ../../operators/z21-device
 	github.com/trains-io/elp/packages/events => ../../packages/events
-	github.com/trains-io/z21.go => ../../../z21.go
 )
+
+replace github.com/trains-io/z21.go => ../../../z21.go

@@ -1,9 +1,10 @@
+# syntax=docker/dockerfile:1.4
 # Headless Z21 LAN simulator (Go). UDP API on 21105; gRPC control on 50051.
-
 FROM golang:1.24-bookworm AS builder
 
 WORKDIR /src
 COPY go.mod go.sum ./
+RUN go mod edit -dropreplace=github.com/trains-io/z21.go
 RUN go mod download
 COPY api ./api
 COPY cmd ./cmd
