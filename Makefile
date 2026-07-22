@@ -5,6 +5,7 @@
 	kind-up kind-down kind-configure-host metallb-install metallb-uninstall nats-install nats-uninstall dev-infra-up dev-infra-down \
 	test-api build-api run-api api-image kind-load-api api-install api-uninstall api-dev-install api-port-forward \
 	test-gateway build-gateway gateway-image kind-load-gateway \
+	test-z21-sim build-z21-sim z21-sim-image kind-load-z21-sim \
 	test-elpctl build-elpctl
 
 KIND_CLUSTER_NAME ?= elp
@@ -27,6 +28,9 @@ ELPCTL_BIN = bin/elpctl
 GATEWAY_DIR = apps/z21-gateway
 GATEWAY_BIN = bin/z21-gateway
 GATEWAY_IMAGE = z21-gateway:local
+Z21_SIM_DIR = apps/z21-sim
+Z21_SIM_BIN = bin/z21-sim
+Z21_SIM_IMAGE = ghcr.io/trains-io/z21-sim:local
 # Pin stable k8s; override to match your kind release notes if needed.
 KIND_NODE_IMAGE ?= kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8
 METALLB_VERSION ?= v0.14.9
@@ -201,6 +205,27 @@ kind-load-gateway: ## Load z21-gateway:local into the kind cluster
 		echo "kind cluster '$(KIND_CLUSTER_NAME)' not found; run make kind-up first"; exit 1; \
 	fi
 	kind load docker-image $(GATEWAY_IMAGE) --name $(KIND_CLUSTER_NAME)
+
+##@ z21-sim
+
+test-z21-sim: ## Run z21-sim unit tests
+	cd $(Z21_SIM_DIR) && go test ./... -count=1
+
+build-z21-sim: ## Build bin/z21-sim
+	mkdir -p bin
+	cd $(Z21_SIM_DIR) && go build -o ../../$(Z21_SIM_BIN) ./cmd/z21-sim
+
+z21-sim-image: ## Build ghcr.io/trains-io/z21-sim:local container image
+	@if [ ! -d ../z21.go ]; then \
+		echo "z21.go not found at ../z21.go (clone github.com/trains-io/z21.go next to elp)"; exit 1; \
+	fi
+	DOCKER_BUILDKIT=1 docker build -t $(Z21_SIM_IMAGE) -f $(Z21_SIM_DIR)/Dockerfile $(Z21_SIM_DIR)
+
+kind-load-z21-sim: ## Load z21-sim:local into the kind cluster
+	@if ! kind get clusters 2>/dev/null | grep -qx '$(KIND_CLUSTER_NAME)'; then \
+		echo "kind cluster '$(KIND_CLUSTER_NAME)' not found; run make kind-up first"; exit 1; \
+	fi
+	kind load docker-image $(Z21_SIM_IMAGE) --name $(KIND_CLUSTER_NAME)
 
 ##@ elpctl
 

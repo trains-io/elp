@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package trains.io.z21sim.control.v1;
+
+option go_package = "github.com/trains-io/elp/apps/z21-sim/api/control/v1;controlv1";
+
+// SimulatorService is the gRPC control plane for z21-sim.
+// A sidecar (z21-sim-controller) uses it to inject unsolicited Z21 LAN events.
+service SimulatorService {
+  // BroadcastSystemState emits LAN_SYSTEMSTATE_DATACHANGED to subscribed clients.
+  rpc BroadcastSystemState(BroadcastSystemStateRequest) returns (BroadcastSystemStateResponse);
+
+  // SetTrackPower updates simulator track power and emits unsolicited XpressNet
+  // and system-state broadcasts to subscribed clients.
+  rpc SetTrackPower(SetTrackPowerRequest) returns (SetTrackPowerResponse);
+
+  // NotifyCANDeviceDetected registers a CAN device and broadcasts its initial
+  // status to subscribed clients, emulating hot-plug detection.
+  rpc NotifyCANDeviceDetected(NotifyCANDeviceDetectedRequest) returns (NotifyCANDeviceDetectedResponse);
+}
+
+message BroadcastSystemStateRequest {}
+
+message BroadcastSystemStateResponse {
+  int32 recipient_count = 1;
+}
+
+message SetTrackPowerRequest {
+  bool on = 1;
+}
+
+message SetTrackPowerResponse {
+  bool on = 1;
+  bool changed = 2;
+}
+
+enum CANDeviceKind {
+  CAN_DEVICE_KIND_UNSPECIFIED = 0;
+  CAN_DEVICE_KIND_DETECTOR = 1;
+  CAN_DEVICE_KIND_BOOSTER = 2;
+}
+
+message NotifyCANDeviceDetectedRequest {
+  uint32 net_id = 1;
+  CANDeviceKind kind = 2;
+  string name = 3;
+  uint32 module_addr = 4;  // detector: 1-based module address (default 1)
+  uint32 port_count = 5;   // detector: number of feedback ports (default 1)
+  uint32 output_port = 6;  // booster: output port index (default 1)
+}
+
+message NotifyCANDeviceDetectedResponse {
+  int32 recipient_count = 1;
+}
