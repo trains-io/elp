@@ -44,6 +44,7 @@ func init() {
 
 	rootCmd.AddCommand(newDeviceCmd())
 	rootCmd.AddCommand(newConfigCmd())
+	rootCmd.AddCommand(newSimulateCmd())
 	setUsageOnError(rootCmd)
 }
 

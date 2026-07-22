@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	z21v1alpha1 "github.com/trains-io/elp/operators/z21-device/api/v1alpha1"
+	simv1alpha1 "github.com/trains-io/elp/operators/z21-sim-controller/api/v1alpha1"
 )
 
 // NewClient returns a controller-runtime client with Z21Device types registered.
@@ -22,6 +23,7 @@ func NewClient() (client.Client, error) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(z21v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(simv1alpha1.AddToScheme(scheme))
 
 	return client.New(cfg, client.Options{Scheme: scheme})
 }

@@ -32,6 +32,7 @@ func (h *DeviceHandler) Routes() chi.Router {
 	r.Get("/", h.listDevices)
 	r.Post("/", h.createDevice)
 	r.Post("/{name}", h.createDevice)
+	r.Post("/{name}/simulate/can", h.simulateCAN)
 	r.Get("/{name}", h.getDevice)
 	r.Patch("/{name}", h.patchDevice)
 	r.Delete("/{name}", h.deleteDevice)

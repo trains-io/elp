@@ -9,6 +9,7 @@ rules:
       - z21.trains.io
     resources:
       - z21devices
+      - simulations
     verbs:
       - create
       - delete

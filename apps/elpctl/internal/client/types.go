@@ -80,3 +80,29 @@ type StreamEvent struct {
 	Device Device   `json:"device,omitempty"`
 	Name   string   `json:"name,omitempty"`
 }
+
+type SimulateCANRequest struct {
+	SimulationName string                  `json:"simulationName,omitempty"`
+	CANDetectors   []SimulationCANDetector `json:"canDetectors"`
+}
+
+type SimulationCANDetector struct {
+	NetID         uint16 `json:"netID"`
+	Name          string `json:"name,omitempty"`
+	ModuleAddress uint16 `json:"moduleAddress,omitempty"`
+	PortCount     uint16 `json:"portCount,omitempty"`
+}
+
+type Simulation struct {
+	Name         string                  `json:"name"`
+	Namespace    string                  `json:"namespace"`
+	DeviceRef    string                  `json:"deviceRef"`
+	CANDetectors []SimulationCANDetector `json:"canDetectors,omitempty"`
+	Status       *SimulationStatus       `json:"status,omitempty"`
+}
+
+type SimulationStatus struct {
+	Phase             string `json:"phase,omitempty"`
+	Message           string `json:"message,omitempty"`
+	AppliedCANDevices int32  `json:"appliedCANDevices,omitempty"`
+}

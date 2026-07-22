@@ -150,6 +150,33 @@ func TestCreateDeviceSimulator(t *testing.T) {
 	}
 }
 
+func TestSimulateCAN(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/namespaces/default/devices/lab/simulate/can" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(Simulation{
+			Name:      "lab",
+			Namespace: "default",
+			DeviceRef: "lab",
+			CANDetectors: []SimulationCANDetector{{
+				NetID: 0xDB04,
+			}},
+		})
+	}))
+	defer srv.Close()
+
+	sim, err := New(srv.URL, "default").SimulateCAN(context.Background(), "lab", SimulateCANRequest{
+		CANDetectors: []SimulationCANDetector{{NetID: 0xDB04}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sim.Name != "lab" || len(sim.CANDetectors) != 1 {
+		t.Fatalf("simulation = %#v", sim)
+	}
+}
+
 func TestAPIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

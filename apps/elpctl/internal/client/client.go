@@ -52,6 +52,15 @@ func (c *Client) DeleteDevice(ctx context.Context, name string) error {
 	return c.doJSON(ctx, http.MethodDelete, c.devicePath(name), nil, http.StatusNoContent, nil)
 }
 
+func (c *Client) SimulateCAN(ctx context.Context, deviceName string, req SimulateCANRequest) (Simulation, error) {
+	if deviceName == "" {
+		return Simulation{}, fmt.Errorf("device name is required")
+	}
+	var out Simulation
+	err := c.doJSON(ctx, http.MethodPost, c.simulateCANPath(deviceName), req, http.StatusOK, &out)
+	return out, err
+}
+
 // WatchDevices streams SSE device events until ctx is cancelled.
 func (c *Client) WatchDevices(ctx context.Context, fn func(StreamEvent) error) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.streamPath(), nil)
@@ -83,6 +92,10 @@ func (c *Client) devicePath(name string) string {
 
 func (c *Client) streamPath() string {
 	return fmt.Sprintf("%s/stream", c.devicesPath())
+}
+
+func (c *Client) simulateCANPath(deviceName string) string {
+	return fmt.Sprintf("%s/simulate/can", c.devicePath(deviceName))
 }
 
 func (c *Client) doJSON(ctx context.Context, method, path string, body any, expectStatus int, out any) error {
