@@ -1,0 +1,9 @@
+namespace: elp
+resources:
+  - ../crd
+  - ../rbac
+  - ../manager
+images:
+  - name: ghcr.io/trains-io/z21-sim-controller
+    newName: z21-sim-controller
+    newTag: local

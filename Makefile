@@ -2,10 +2,12 @@
 
 .PHONY: help test generate-operator build-operator clean \
 	operator-image kind-load-operator operator-install-crd operator-install operator-uninstall operator-dev-install \
+	sim-controller-install sim-controller-uninstall sim-controller-dev-install \
 	kind-up kind-down kind-configure-host metallb-install metallb-uninstall nats-install nats-uninstall dev-infra-up dev-infra-down \
 	test-api build-api run-api api-image kind-load-api api-install api-uninstall api-dev-install api-port-forward \
 	test-gateway build-gateway gateway-image kind-load-gateway \
 	test-z21-sim build-z21-sim z21-sim-image kind-load-z21-sim \
+	test-sim-controller generate-sim-controller build-sim-controller sim-controller-image kind-load-sim-controller \
 	test-elpctl build-elpctl
 
 KIND_CLUSTER_NAME ?= elp
@@ -18,6 +20,10 @@ OPERATOR_CRD_KUSTOMIZE = $(OPERATOR_DIR)/config/crd
 OPERATOR_KUSTOMIZE = $(OPERATOR_DIR)/config/default
 OPERATOR_CANPOOL_KUSTOMIZE = $(OPERATOR_DIR)/config/canpool
 OPERATOR_IMAGE = z21-device-controller:local
+SIM_CONTROLLER_DIR = operators/z21-sim-controller
+SIM_CONTROLLER_IMAGE = z21-sim-controller:local
+SIM_CONTROLLER_KUSTOMIZE = $(SIM_CONTROLLER_DIR)/config/default
+SIM_CONTROLLER_DEPLOYMENT = z21-sim-controller
 API_DIR = apps/api
 API_BIN = bin/elp-api
 API_KUSTOMIZE = deploy/api
@@ -56,6 +62,14 @@ generate-operator: ## Regenerate CRD, deepcopy, and RBAC from API + controllers
 		output:crd:artifacts:config=config/crd/bases \
 		output:rbac:dir=config/rbac
 
+generate-sim-controller: ## Regenerate Simulation CRD, deepcopy, and RBAC
+	cd $(SIM_CONTROLLER_DIR) && \
+	controller-gen object paths="./api/..." output:object:artifacts:config=api/v1alpha1 && \
+	controller-gen crd rbac:roleName=z21-sim-controller-manager \
+		paths="./api/...;./internal/..." \
+		output:crd:artifacts:config=config/crd/bases \
+		output:rbac:dir=config/rbac
+
 build-operator: ## Build the z21-device operator
 	mkdir -p bin
 	cd operators/z21-device && go build -o ../../bin/z21-device-controller ./cmd
@@ -72,21 +86,34 @@ kind-load-operator: ## Load the local controller image into the kind cluster
 	fi
 	kind load docker-image $(OPERATOR_IMAGE) --name $(KIND_CLUSTER_NAME)
 
-operator-install-crd: ## Install Z21Device CRDs only
+operator-install-crd: ## Install Z21Device and Simulation CRDs
 	kubectl apply -k $(OPERATOR_CRD_KUSTOMIZE)
+	kubectl apply -k $(SIM_CONTROLLER_DIR)/config/crd
 
 operator-install-canpool: ## Install the default CANAddressPool in the elp namespace
 	kubectl apply -k $(OPERATOR_CANPOOL_KUSTOMIZE)
 
-operator-install: ## Install CRDs, RBAC, controller manager, and default CAN address pool
+operator-install: ## Install CRDs, RBAC, controller managers, and default CAN address pool
 	kubectl apply -k $(OPERATOR_KUSTOMIZE)
+	kubectl apply -k $(SIM_CONTROLLER_KUSTOMIZE)
 	kubectl apply -k $(OPERATOR_CANPOOL_KUSTOMIZE)
 	kubectl rollout status deployment/$(OPERATOR_DEPLOYMENT) -n $(OPERATOR_NAMESPACE) --timeout=120s
+	kubectl rollout status deployment/$(SIM_CONTROLLER_DEPLOYMENT) -n $(OPERATOR_NAMESPACE) --timeout=120s
 
-operator-uninstall: ## Remove controller manager, RBAC, and CRDs
+operator-uninstall: ## Remove controller managers, RBAC, and CRDs
+	kubectl delete -k $(SIM_CONTROLLER_KUSTOMIZE) --ignore-not-found
 	kubectl delete -k $(OPERATOR_KUSTOMIZE) --ignore-not-found
 
-operator-dev-install: operator-image kind-load-operator operator-install ## Build, load, and install operator on kind
+operator-dev-install: operator-image kind-load-operator sim-controller-image kind-load-sim-controller operator-install ## Build, load, and install operators on kind
+
+sim-controller-install: ## Install z21-sim-controller RBAC and Deployment
+	kubectl apply -k $(SIM_CONTROLLER_KUSTOMIZE)
+	kubectl rollout status deployment/$(SIM_CONTROLLER_DEPLOYMENT) -n $(OPERATOR_NAMESPACE) --timeout=120s
+
+sim-controller-uninstall: ## Remove z21-sim-controller RBAC and Deployment
+	kubectl delete -k $(SIM_CONTROLLER_KUSTOMIZE) --ignore-not-found
+
+sim-controller-dev-install: sim-controller-image kind-load-sim-controller sim-controller-install ## Build, load, and install sim controller on kind
 
 ##@ Infrastructure
 
@@ -226,6 +253,24 @@ kind-load-z21-sim: ## Load z21-sim:local into the kind cluster
 		echo "kind cluster '$(KIND_CLUSTER_NAME)' not found; run make kind-up first"; exit 1; \
 	fi
 	kind load docker-image $(Z21_SIM_IMAGE) --name $(KIND_CLUSTER_NAME)
+
+##@ z21-sim-controller
+
+test-sim-controller: ## Run z21-sim-controller unit tests
+	cd $(SIM_CONTROLLER_DIR) && go test ./... -count=1
+
+build-sim-controller: ## Build bin/z21-sim-controller
+	mkdir -p bin
+	cd $(SIM_CONTROLLER_DIR) && go build -o ../../bin/z21-sim-controller ./cmd
+
+sim-controller-image: ## Build z21-sim-controller:local container image
+	DOCKER_BUILDKIT=1 docker build -t $(SIM_CONTROLLER_IMAGE) -f $(SIM_CONTROLLER_DIR)/Dockerfile .
+
+kind-load-sim-controller: ## Load z21-sim-controller:local into the kind cluster
+	@if ! kind get clusters 2>/dev/null | grep -qx '$(KIND_CLUSTER_NAME)'; then \
+		echo "kind cluster '$(KIND_CLUSTER_NAME)' not found; run make kind-up first"; exit 1; \
+	fi
+	kind load docker-image $(SIM_CONTROLLER_IMAGE) --name $(KIND_CLUSTER_NAME)
 
 ##@ elpctl
 

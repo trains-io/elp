@@ -1,0 +1,12 @@
+apiVersion: z21.trains.io/v1alpha1
+kind: Simulation
+metadata:
+  name: example
+spec:
+  deviceRef:
+    name: lab
+  canDetectors:
+    - netID: 56068
+      name: occupancy-a
+      moduleAddress: 1
+      portCount: 8

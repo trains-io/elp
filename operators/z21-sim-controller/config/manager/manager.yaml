@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: elp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: z21-sim-controller
+  namespace: elp
+  labels:
+    app.kubernetes.io/name: z21-sim-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: z21-sim-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: z21-sim-controller
+    spec:
+      serviceAccountName: z21-sim-controller
+      containers:
+        - name: z21-sim-controller
+          image: ghcr.io/trains-io/z21-sim-controller:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - --health-probe-bind-address=:8081
+            - --metrics-bind-address=0
+            - --workload-namespace=elp
+          ports:
+            - name: health
+              containerPort: 8081
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true

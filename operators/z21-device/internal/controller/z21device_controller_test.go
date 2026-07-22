@@ -118,11 +118,26 @@ func TestDesiredSimulatorDeployment(t *testing.T) {
 	}
 
 	dep := desiredSimulatorDeployment(device)
-	if dep.Spec.Template.Spec.Containers[0].Image != "z21-sim:local" {
-		t.Fatalf("image = %q", dep.Spec.Template.Spec.Containers[0].Image)
+	if len(dep.Spec.Template.Spec.Containers) != 1 {
+		t.Fatalf("containers = %d, want 1", len(dep.Spec.Template.Spec.Containers))
 	}
-	if dep.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort != z21v1alpha1.DefaultZ21Port {
-		t.Fatalf("port = %d", dep.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort)
+	sim := dep.Spec.Template.Spec.Containers[0]
+	if sim.Image != "z21-sim:local" {
+		t.Fatalf("image = %q", sim.Image)
+	}
+	if sim.Ports[0].ContainerPort != z21v1alpha1.DefaultZ21Port {
+		t.Fatalf("udp port = %d", sim.Ports[0].ContainerPort)
+	}
+	if sim.Ports[1].ContainerPort != z21v1alpha1.DefaultSimulatorGRPCPort {
+		t.Fatalf("grpc port = %d", sim.Ports[1].ContainerPort)
+	}
+}
+
+func TestSimulatorGRPCAddress(t *testing.T) {
+	addr := z21v1alpha1.SimulatorGRPCAddress("elp", "lab")
+	want := "z21-sim-lab.elp.svc.cluster.local.:50051"
+	if addr != want {
+		t.Fatalf("SimulatorGRPCAddress = %q, want %q", addr, want)
 	}
 }
 

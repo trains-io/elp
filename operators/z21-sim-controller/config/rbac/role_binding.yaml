@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: z21-sim-controller-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: z21-sim-controller-manager
+subjects:
+  - kind: ServiceAccount
+    name: z21-sim-controller
+    namespace: elp

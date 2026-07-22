@@ -283,6 +283,9 @@ const DefaultBroadcastFlags uint32 = broadcastFlagXpressNet | broadcastFlagSyste
 // DefaultSimulatorImage is the in-cluster z21 simulator image.
 const DefaultSimulatorImage = "ghcr.io/trains-io/z21-sim:latest"
 
+// DefaultSimulatorGRPCPort is the z21-sim gRPC control plane port.
+const DefaultSimulatorGRPCPort = 50051
+
 // DefaultWorkloadNamespace is where gateway and simulator workloads are reconciled.
 const DefaultWorkloadNamespace = "elp"
 
@@ -405,6 +408,14 @@ func (d *Z21Device) SimulatorImage() string {
 		return d.Spec.Backend.Simulator.Image
 	}
 	return DefaultSimulatorImage
+}
+
+// SimulatorGRPCAddress returns the in-cluster gRPC endpoint for z21-sim control.
+func SimulatorGRPCAddress(workloadNamespace, deviceName string) string {
+	return net.JoinHostPort(
+		SimulatorServiceFQDN(workloadNamespace, deviceName),
+		fmt.Sprintf("%d", DefaultSimulatorGRPCPort),
+	)
 }
 
 // CANAddressPoolName returns the effective CANAddressPool name for this device.

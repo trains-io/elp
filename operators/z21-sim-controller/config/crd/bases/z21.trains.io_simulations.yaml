@@ -1,0 +1,151 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: simulations.z21.trains.io
+spec:
+  group: z21.trains.io
+  names:
+    kind: Simulation
+    listKind: SimulationList
+    plural: simulations
+    shortNames:
+    - sim
+    singular: simulation
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.deviceRef.name
+      name: Device
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.appliedCANDevices
+      name: CAN
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Simulation drives z21-sim through the in-pod gRPC control plane.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SimulationSpec defines desired simulator state for one Z21Device
+              backend.
+            properties:
+              canBoosters:
+                description: CANBoosters are CAN booster modules to register on the
+                  simulator.
+                items:
+                  description: SimulationCANBooster declares a CAN booster module
+                    on the simulator.
+                  properties:
+                    name:
+                      description: Name is an optional module label reported by the
+                        simulator.
+                      type: string
+                    netID:
+                      description: NetID is the permanent CAN network identifier.
+                      minimum: 1
+                      type: integer
+                    outputPort:
+                      description: OutputPort is the booster output index (default
+                        1).
+                      type: integer
+                  required:
+                  - netID
+                  type: object
+                type: array
+              canDetectors:
+                description: CANDetectors are occupancy detector modules to register
+                  on the simulator.
+                items:
+                  description: SimulationCANDetector declares a CAN occupancy detector
+                    module on the simulator.
+                  properties:
+                    moduleAddress:
+                      description: ModuleAddress is the 1-based module address (default
+                        1).
+                      type: integer
+                    name:
+                      description: Name is an optional module label reported by the
+                        simulator.
+                      type: string
+                    netID:
+                      description: NetID is the permanent CAN network identifier (for
+                        example 0xDB04).
+                      minimum: 1
+                      type: integer
+                    portCount:
+                      description: PortCount is the number of feedback ports (default
+                        8).
+                      type: integer
+                  required:
+                  - netID
+                  type: object
+                type: array
+              deviceRef:
+                description: DeviceRef names the Z21Device with backend.type simulator
+                  (same namespace).
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+            required:
+            - deviceRef
+            type: object
+          status:
+            description: SimulationStatus reports what the simulator controller last
+              applied.
+            properties:
+              appliedCANDevices:
+                description: AppliedCANDevices counts detectors and boosters successfully
+                  registered.
+                format: int32
+                type: integer
+              message:
+                description: Message explains a Failed phase or the last apply error.
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the last reconciled metadata.generation.
+                format: int64
+                type: integer
+              phase:
+                description: Phase is Pending, Applied, or Failed.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

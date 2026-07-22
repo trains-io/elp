@@ -22,4 +22,4 @@ EXPOSE 21105/udp
 EXPOSE 50051/tcp
 
 ENTRYPOINT ["/usr/local/bin/z21-sim"]
-CMD ["-addr", "0.0.0.0:21105", "-grpc-addr", "127.0.0.1:50051"]
+CMD ["-addr", "0.0.0.0:21105", "-grpc-addr", "0.0.0.0:50051"]

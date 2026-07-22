@@ -1,0 +1,23 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: z21-sim-controller-manager
+rules:
+- apiGroups:
+  - z21.trains.io
+  resources:
+  - simulations
+  - z21devices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - z21.trains.io
+  resources:
+  - simulations/status
+  verbs:
+  - get
+  - patch
+  - update

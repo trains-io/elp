@@ -176,12 +176,20 @@ func (r *Z21DeviceReconciler) reconcileSimulatorService(ctx context.Context, dev
 		svc.Spec = corev1.ServiceSpec{
 			Type:     corev1.ServiceTypeClusterIP,
 			Selector: selector,
-			Ports: []corev1.ServicePort{{
-				Name:       "z21-udp",
-				Port:       z21v1alpha1.DefaultZ21Port,
-				TargetPort: intstr.FromInt32(z21v1alpha1.DefaultZ21Port),
-				Protocol:   corev1.ProtocolUDP,
-			}},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "z21-udp",
+					Port:       z21v1alpha1.DefaultZ21Port,
+					TargetPort: intstr.FromInt32(z21v1alpha1.DefaultZ21Port),
+					Protocol:   corev1.ProtocolUDP,
+				},
+				{
+					Name:       "grpc",
+					Port:       z21v1alpha1.DefaultSimulatorGRPCPort,
+					TargetPort: intstr.FromInt32(z21v1alpha1.DefaultSimulatorGRPCPort),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
 		}
 		return nil
 	})
@@ -619,11 +627,22 @@ func desiredSimulatorDeployment(device *z21v1alpha1.Z21Device) *appsv1.Deploymen
 						Name:            simulatorComponent,
 						Image:           device.SimulatorImage(),
 						ImagePullPolicy: corev1.PullIfNotPresent,
-						Ports: []corev1.ContainerPort{{
-							Name:          "z21-udp",
-							ContainerPort: z21v1alpha1.DefaultZ21Port,
-							Protocol:      corev1.ProtocolUDP,
-						}},
+						Args: []string{
+							"-addr", fmt.Sprintf("0.0.0.0:%d", z21v1alpha1.DefaultZ21Port),
+							"-grpc-addr", fmt.Sprintf("0.0.0.0:%d", z21v1alpha1.DefaultSimulatorGRPCPort),
+						},
+						Ports: []corev1.ContainerPort{
+							{
+								Name:          "z21-udp",
+								ContainerPort: z21v1alpha1.DefaultZ21Port,
+								Protocol:      corev1.ProtocolUDP,
+							},
+							{
+								Name:          "grpc",
+								ContainerPort: z21v1alpha1.DefaultSimulatorGRPCPort,
+								Protocol:      corev1.ProtocolTCP,
+							},
+						},
 					}},
 				},
 			},
